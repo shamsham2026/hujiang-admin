@@ -73,15 +73,9 @@ export function TimetableClient({
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-[var(--brand-ink)]">
-            有效課表查詢
-          </h1>
-          <p className="mt-1 text-sm text-[var(--brand-muted)]">
-            顯示層對齊 cover 首頁全校課表（day-board）；資料只讀訂閱 board（lessons
-            ⊕ swaps）。
-          </p>
-        </div>
+        <h1 className="font-display text-3xl font-bold text-[var(--brand-ink)]">
+          有效課表查詢
+        </h1>
         <div className="flex flex-wrap gap-2">
           <a
             className="btn-secondary"
@@ -109,37 +103,37 @@ export function TimetableClient({
           apply(false);
         }}
       >
-        <label className="text-sm">
-          <span className="text-[var(--brand-muted)]">日期</span>
+        <label className="text-base font-semibold">
+          日期
           <input
             type="date"
-            className="field mt-1"
+            className="field mt-1 block text-base"
             value={dateValue}
             onChange={(e) => setDateValue(e.target.value)}
           />
         </label>
-        <label className="text-sm">
-          <span className="text-[var(--brand-muted)]">班別</span>
+        <label className="text-base font-semibold">
+          班別
           <input
-            className="field mt-1"
+            className="field mt-1 block text-base"
             placeholder="如 3A"
             value={className}
             onChange={(e) => setClassName(e.target.value)}
           />
         </label>
-        <label className="text-sm">
-          <span className="text-[var(--brand-muted)]">教師</span>
+        <label className="text-base font-semibold">
+          教師
           <input
-            className="field mt-1"
+            className="field mt-1 block text-base"
             placeholder="簡稱或全名片段"
             value={teacher}
             onChange={(e) => setTeacher(e.target.value)}
           />
         </label>
-        <label className="text-sm">
-          <span className="text-[var(--brand-muted)]">節次</span>
+        <label className="text-base font-semibold">
+          節次
           <select
-            className="field mt-1"
+            className="field mt-1 block text-base"
             value={period}
             onChange={(e) => setPeriod(e.target.value)}
           >
@@ -151,12 +145,12 @@ export function TimetableClient({
             ))}
           </select>
         </label>
-        <button type="submit" className="btn-primary" disabled={pending}>
+        <button type="submit" className="btn-primary text-base" disabled={pending}>
           查詢
         </button>
         <button
           type="button"
-          className="btn-secondary"
+          className="btn-secondary text-base"
           disabled={pending}
           onClick={() => apply(true)}
         >
@@ -164,32 +158,9 @@ export function TimetableClient({
         </button>
       </form>
 
-      <div className="flex flex-wrap gap-3 text-sm text-[var(--brand-muted)]">
-        <span>
-          {dateValue}（星期{dayLabel || "—"}）
-        </span>
-        <span>· {lessonCount} 格／當值</span>
-        <span>· 調動覆蓋 {swapCount} 節</span>
-        {fetchedAt ? (
-          <span>· board {new Date(fetchedAt).toLocaleString("zh-HK")}</span>
-        ) : null}
-      </div>
-
-      {error ? (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </p>
-      ) : null}
-
       {board ? (
         <DayBoard board={board} highlightTeacher={filters.teacher} />
-      ) : !error ? (
-        <p className="text-sm text-[var(--brand-muted)]">暫無課表資料。</p>
-      ) : null}
-
-      {source ? (
-        <p className="text-xs text-[var(--brand-muted)]">來源：{source}</p>
-      ) : null}
+      ) : !error ? null : null}
     </div>
   );
 }

@@ -49,9 +49,7 @@ export default async function TimetablePage({
 
   return (
     <AppShell current="/timetable">
-      <Suspense
-        fallback={<p className="text-sm text-[var(--brand-muted)]">載入中…</p>}
-      >
+      <Suspense fallback={null}>
         <TimetableClient
           date={date}
           dayLabel={weekdayLabel(date)}
