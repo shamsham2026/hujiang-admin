@@ -18,6 +18,12 @@ const MODULES = [
     ready: true,
   },
   {
+    href: "/activity-week",
+    title: "活動週安排",
+    desc: "內建活動同平台提交可以修訂，重新載入保留",
+    ready: true,
+  },
+  {
     href: `${COVER_BASE}/lookup`,
     title: "調課／代課安排",
     desc: "外連 hujiang-cover 查找與安排",
