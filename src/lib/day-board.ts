@@ -142,12 +142,19 @@ export function buildDayBoard(
       const canon = canonicalizePeriod(l.period, l.teacher, l.course);
       if (canon !== period.id) continue;
       if (!isDutyPeriod(l.period, l.course) && l.className) continue;
+      // Check swap record — use swapped teacher/course if available
+      const swapKeyStr = l.className
+        ? swapKey(l.className, period.id)
+        : null;
+      const swap = swapKeyStr ? swapIndex.get(swapKeyStr) : undefined;
+      const teacher = swap?.newTeacher || l.teacher;
+      const course = swap?.newLesson || l.course;
       const post =
-        dutyLocation(l.course) ||
+        dutyLocation(course) ||
         l.className ||
-        subjectOf(l.course, l.className) ||
+        subjectOf(course, l.className) ||
         period.label;
-      duties.push({ post, teacher: l.teacher, course: l.course });
+      duties.push({ post, teacher, course });
     }
 
     return {
