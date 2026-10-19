@@ -3,7 +3,7 @@ import path from "path";
 import { get, put } from "@vercel/blob";
 import { splitList } from "./activity-week-conflicts";
 import {
-  defaultPlacements,
+  alignStoredPlacements,
   isClassCode,
   isTeachingPeriod,
 } from "./activity-week-grid";
@@ -129,10 +129,16 @@ async function withLock<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 async function ensureSeeded(store: StoreShape): Promise<StoreShape> {
-  if (store.placementsSeeded) return store;
-  store.placements = defaultPlacements();
+  const aligned = alignStoredPlacements(store.placements, store.revisions);
+  store.placements = aligned.placements;
+  const needWrite = aligned.changed || !store.placementsSeeded;
   store.placementsSeeded = true;
-  await persist(store);
+  if (!needWrite) return store;
+  try {
+    await persist(store);
+  } catch {
+    globalThis.__hujiangAwSubs = clone(store);
+  }
   return store;
 }
 

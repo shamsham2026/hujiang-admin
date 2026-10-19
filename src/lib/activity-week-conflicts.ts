@@ -129,7 +129,7 @@ export function isHallFull(dateOrWindow: string, items: ConflictItem[]): boolean
       if (
         parseDateOrWindow(rule.date).includes(date) &&
         /禮堂/.test(rule.rule) &&
-        /全日|封鎖/.test(rule.rule)
+        /全日|封鎖|優先|總綵排/.test(rule.rule)
       ) {
         return true;
       }

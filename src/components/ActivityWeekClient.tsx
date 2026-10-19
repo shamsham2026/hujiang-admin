@@ -9,6 +9,13 @@ import {
   defaultDay,
   suggestPlacements,
 } from "@/lib/activity-week-grid";
+import {
+  CALENDAR_RULE,
+  CANDIDATES,
+  DUTY_REFERENCE,
+  P1_THEATRE_NOTE,
+  dayHints,
+} from "@/lib/activity-week-planning";
 import { ACTIVITY_WEEK_SEED } from "@/lib/activity-week-seed";
 import type { ActivityEntry, ActivityPlacement } from "@/lib/activity-week-types";
 
@@ -191,6 +198,7 @@ export function ActivityWeekClient() {
           <h1 className="font-display text-3xl font-bold text-[var(--brand-ink)]">活動週安排</h1>
           <p className="mt-1 text-sm text-[var(--brand-muted)]">
             上學期 1/4–8｜下學期 6/16–7/8｜期考後 12/16–18、21。7/9 結業禮唔排活動。
+            {CALENDAR_RULE}
           </p>
         </div>
         <a href={AW_REG_PATH} className="btn-primary">
@@ -223,8 +231,16 @@ export function ActivityWeekClient() {
           <p className="max-w-xl text-xs leading-relaxed text-[var(--brand-muted)]">
             先撳節目「排入」再撳格子，或者拖入格子。同一格再撳個節目就可以移走。C 有蓋操場、B
             籃球場、E 飲食區、H 禮堂、106 室；沒註明場地＝課室。C1 教師持咪、〈教師〉主持、（教師）統籌。
+            {DUTY_REFERENCE}
           </p>
         </div>
+        {dayHints(date).length ? (
+          <ul className="list-disc space-y-1 pl-5 text-sm text-[var(--brand-ink)]">
+            {dayHints(date).map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        ) : null}
         {dayRules.length ? (
           <ul className="list-disc space-y-1 pl-5 text-sm text-amber-950">
             {dayRules.map((line) => (
@@ -299,6 +315,22 @@ export function ActivityWeekClient() {
           {ACTIVITY_WEEK_SEED.constraints.map((rule) => (
             <li key={rule.date}>
               <span className="font-medium">{rule.date}</span>：{rule.rule}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="section-block space-y-2">
+        <h2 className="section-title">候選（未確認，唔排入時間表）</h2>
+        <p className="text-sm text-[var(--brand-ink)]">{P1_THEATRE_NOTE}</p>
+        <ul className="list-disc space-y-1 pl-5 text-sm text-[var(--brand-ink)]">
+          {CANDIDATES.map((item) => (
+            <li key={item.title}>
+              <span className="font-medium">{item.title}</span>
+              <span className="text-[var(--brand-muted)]">
+                {" "}
+                · {item.audience} · {item.note}
+              </span>
             </li>
           ))}
         </ul>

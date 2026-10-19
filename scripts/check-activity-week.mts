@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { parseDateOrWindow } from "../src/lib/activity-week-conflicts.ts";
+import { isHallFull } from "../src/lib/activity-week-conflicts.ts";
 import {
+  alignStoredPlacements,
   audienceToClasses,
   cellsForDay,
   defaultPlacements,
   expandPeriods,
   venueKey,
 } from "../src/lib/activity-week-grid.ts";
+import { ACTIVITY_WEEK_SEED } from "../src/lib/activity-week-seed.ts";
+import { CANDIDATES } from "../src/lib/activity-week-planning.ts";
 import type { ActivityEntry } from "../src/lib/activity-week-types.ts";
 
 const jan = parseDateOrWindow("2026-01-04/2026-01-08");
@@ -53,11 +57,40 @@ assert.ok(
 );
 assert.ok(!seeded.some((p) => p.entryId === "sem1-p5-gas"));
 assert.ok(!seeded.some((p) => p.entryId === "sem2-flag-p3p4"));
+assert.ok(!seeded.some((p) => p.date === "2026-07-09" || p.date === "2026-06-14"));
 assert.ok(
   seeded.some(
     (p) => p.entryId === "sem2-hall-block-0617" && p.date === "2026-06-17" && p.classCode === "其他",
   ),
 );
+assert.equal(
+  seeded.filter((p) => p.entryId === "sem2-grad-rehearsal-0702" && p.date === "2026-07-02").length,
+  25 * 6,
+);
+assert.ok(
+  seeded.some(
+    (p) => p.entryId === "sem2-hall-block-0617" && p.classCode === "1A" && p.period === "第1節",
+  ),
+);
+assert.ok(isHallFull("2026-07-02", []));
+assert.ok(isHallFull("2026-06-17", []));
+assert.equal(
+  ACTIVITY_WEEK_SEED.seed.some((item) => CANDIDATES.some((c) => item.title === c.title)),
+  false,
+);
+const gasProbe = {
+  id: "plc-gas",
+  entryId: "sem1-p5-gas",
+  date: "2026-01-05",
+  classCode: "5A",
+  period: "第2節",
+  updatedAt: "",
+};
+const aligned = alignStoredPlacements([gasProbe], {});
+assert.ok(!aligned.placements.some((p) => p.entryId === "sem1-p5-gas"));
+assert.ok(aligned.placements.some((p) => p.entryId === "sem2-grad-rehearsal-0702"));
+const kept = alignStoredPlacements([gasProbe], { "sem1-p5-gas": { periods: ["第2節"] } });
+assert.ok(kept.placements.some((p) => p.id === "plc-gas"));
 
 const hallA: ActivityEntry = {
   id: "a",

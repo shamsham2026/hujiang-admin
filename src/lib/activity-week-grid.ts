@@ -258,7 +258,12 @@ export function defaultPlacements(now = "2026-01-01T00:00:00.000Z"): ActivityPla
     const periods = expandPeriods(seed.periods);
     if (!periods.length) continue;
     const classes = audienceToClasses(seed.audience);
-    const targets = classes.length ? classes : seed.periods.some((p) => p.includes("全日") || p.includes("頭三") || p.startsWith("第")) ? ["其他"] : [];
+    const definite = seed.periods.some(
+      (period) => period.includes("全日") || period.includes("頭三") || period.startsWith("第"),
+    );
+    const hallClosed =
+      seed.hold && venueKey(seed.venue) === "H" && seed.periods.some((period) => period.includes("全日"));
+    const targets = classes.length ? classes : hallClosed ? CLASS_CODES : definite ? ["其他"] : [];
     if (!targets.length) continue;
     for (const date of dates) {
       for (const classCode of targets) {
@@ -276,6 +281,52 @@ export function defaultPlacements(now = "2026-01-01T00:00:00.000Z"): ActivityPla
     }
   }
   return out;
+}
+
+/**
+ * Keep definite seed bookings on the grid, and drop the 1/5 煤氣第2節
+ * probe that was written while the period was still unset.
+ * Bookings the user already placed for an entry are left in place.
+ */
+export function alignStoredPlacements(
+  placements: ActivityPlacement[],
+  revisions: Record<string, { periods?: string[] } | undefined>,
+): { placements: ActivityPlacement[]; changed: boolean } {
+  let changed = false;
+  const gas = ACTIVITY_WEEK_SEED.seed.find((item) => item.id === "sem1-p5-gas");
+  const gasPeriods = revisions["sem1-p5-gas"]?.periods ?? gas?.periods ?? [];
+  const gasOpen = expandPeriods(gasPeriods);
+  const next = placements.filter((placement) => {
+    const probe =
+      placement.entryId === "sem1-p5-gas" &&
+      placement.date === "2026-01-05" &&
+      placement.period === "第2節" &&
+      ["5A", "5B", "5C", "5D"].includes(placement.classCode);
+    if (!probe || gasOpen.includes("第2節")) return true;
+    changed = true;
+    return false;
+  });
+  const defaults = defaultPlacements();
+  for (const seed of ACTIVITY_WEEK_SEED.seed) {
+    const additions = defaults.filter((placement) => placement.entryId === seed.id);
+    if (!additions.length) continue;
+    const existing = next.filter((placement) => placement.entryId === seed.id);
+    if (!existing.length) {
+      next.push(...additions);
+      changed = true;
+      continue;
+    }
+    const hallWide = additions.some((placement) => placement.classCode !== "其他");
+    if (!hallWide || !existing.every((placement) => placement.classCode === "其他")) continue;
+    const have = new Set(existing.map((placement) => `${placement.date}|${placement.classCode}|${placement.period}`));
+    for (const addition of additions) {
+      const key = `${addition.date}|${addition.classCode}|${addition.period}`;
+      if (have.has(key)) continue;
+      next.push(addition);
+      changed = true;
+    }
+  }
+  return { placements: next, changed };
 }
 
 export function isClassCode(value: string): boolean {
