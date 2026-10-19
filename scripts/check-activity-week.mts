@@ -31,6 +31,10 @@ assert.deepEqual(audienceToClasses("小二各班"), ["2A", "2B", "2C", "2D"]);
 assert.equal(audienceToClasses("小一至小二").length, 8);
 assert.equal(audienceToClasses("小三及小四各班").length, 8);
 assert.deepEqual(audienceToClasses("小五"), ["5A", "5B", "5C", "5D"]);
+assert.equal(audienceToClasses("初小").length, 12);
+assert.equal(audienceToClasses("高小").length, 12);
+assert.equal(audienceToClasses("初小、高小").length, 24);
+assert.deepEqual(audienceToClasses("80人"), []);
 assert.deepEqual(expandPeriods(["全日"]), [
   "班主任節",
   "第1節",

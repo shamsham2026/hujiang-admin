@@ -5,7 +5,11 @@ import { regWarnings, splitList } from "@/lib/activity-week-conflicts";
 import { ACTIVITY_WEEK_SEED } from "@/lib/activity-week-seed";
 import type { ConflictItem } from "@/lib/activity-week-types";
 
-const PERIOD_OPTS = [
+const DURATION_OPTS = [
+  "30分鐘",
+  "45分鐘",
+  "60分鐘",
+  "90分鐘",
   ...ACTIVITY_WEEK_SEED.periods.map((p) => p.name),
   "全日",
   "頭三節",
@@ -20,7 +24,10 @@ const EMPTY = {
   dateOrWindow: "",
   periods: "",
   venue: "",
-  audience: "",
+  junior: false,
+  senior: false,
+  headcountOnly: false,
+  headcount: "",
   owner: "",
   hold: false,
   notes: "",
@@ -86,6 +93,17 @@ export function ActivityWeekRegisterClient() {
       setError("請先確認免責聲明");
       return;
     }
+    let audience = "";
+    if (form.headcountOnly) {
+      const count = Number(form.headcount);
+      if (!Number.isFinite(count) || count < 1) {
+        setError("請填人數");
+        return;
+      }
+      audience = `${Math.round(count)}人`;
+    } else {
+      audience = [form.junior ? "初小" : "", form.senior ? "高小" : ""].filter(Boolean).join("、");
+    }
     setBusy(true);
     try {
       const res = await fetch("/api/activity-week/submit", {
@@ -96,7 +114,7 @@ export function ActivityWeekRegisterClient() {
           dateOrWindow: form.dateOrWindow.trim(),
           periods: splitList(form.periods),
           venue: form.venue.trim(),
-          audience: form.audience.trim(),
+          audience,
           owner: form.owner.trim(),
           hold: form.hold,
           notes: form.notes.trim(),
@@ -149,16 +167,16 @@ export function ActivityWeekRegisterClient() {
           />
         </label>
         <label className="text-sm">
-          <span className="text-[var(--brand-muted)]">節</span>
+          <span className="text-[var(--brand-muted)]">活動時長</span>
           <input
             className="field mt-1 w-full"
-            list="aw-reg-period-opts"
-            placeholder="第1節,第2節 或 全日"
+            list="aw-reg-duration-opts"
+            placeholder="例如 45分鐘、第1節、第2節 或 全日"
             value={form.periods}
             onChange={(e) => setForm((f) => ({ ...f, periods: e.target.value }))}
           />
-          <datalist id="aw-reg-period-opts">
-            {PERIOD_OPTS.map((opt) => (
+          <datalist id="aw-reg-duration-opts">
+            {DURATION_OPTS.map((opt) => (
               <option key={opt} value={opt} />
             ))}
           </datalist>
@@ -177,14 +195,74 @@ export function ActivityWeekRegisterClient() {
             ))}
           </datalist>
         </label>
-        <label className="text-sm">
-          <span className="text-[var(--brand-muted)]">對象</span>
-          <input
-            className="field mt-1 w-full"
-            value={form.audience}
-            onChange={(e) => setForm((f) => ({ ...f, audience: e.target.value }))}
-          />
-        </label>
+        <fieldset className="text-sm">
+          <legend className="text-[var(--brand-muted)]">對象</legend>
+          <div className="mt-1 space-y-1.5">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-[var(--brand-accent)]"
+                checked={form.junior}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    junior: e.target.checked,
+                    headcountOnly: e.target.checked ? false : f.headcountOnly,
+                    headcount: e.target.checked ? "" : f.headcount,
+                  }))
+                }
+              />
+              初小
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-[var(--brand-accent)]"
+                checked={form.senior}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    senior: e.target.checked,
+                    headcountOnly: e.target.checked ? false : f.headcountOnly,
+                    headcount: e.target.checked ? "" : f.headcount,
+                  }))
+                }
+              />
+              高小
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-[var(--brand-accent)]"
+                checked={form.headcountOnly}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    headcountOnly: e.target.checked,
+                    junior: e.target.checked ? false : f.junior,
+                    senior: e.target.checked ? false : f.senior,
+                    headcount: e.target.checked ? f.headcount : "",
+                  }))
+                }
+              />
+              只需指定人數
+            </label>
+            {form.headcountOnly ? (
+              <label className="block pt-1">
+                <span className="text-[var(--brand-muted)]">人數</span>
+                <input
+                  className="field mt-1 w-full"
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  value={form.headcount}
+                  onChange={(e) => setForm((f) => ({ ...f, headcount: e.target.value }))}
+                  required
+                />
+              </label>
+            ) : null}
+          </div>
+        </fieldset>
         <label className="text-sm">
           <span className="text-[var(--brand-muted)]">負責老師 *</span>
           <input

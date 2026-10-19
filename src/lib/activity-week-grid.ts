@@ -113,6 +113,14 @@ function gradeClasses(grade: number): string[] {
 export function audienceToClasses(audience: string): string[] {
   const s = audience.trim();
   if (!s || s === "—" || s === "-") return [];
+  const junior = s.includes("初小");
+  const senior = s.includes("高小");
+  if (junior || senior) {
+    const classes: string[] = [];
+    if (junior) for (let grade = 1; grade <= 3; grade++) classes.push(...gradeClasses(grade));
+    if (senior) for (let grade = 4; grade <= 6; grade++) classes.push(...gradeClasses(grade));
+    return classes;
+  }
   const range = s.match(/小([一二三四五六])至小([一二三四五六])/);
   if (range) {
     const a = GRADE_CHAR[range[1]];
