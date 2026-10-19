@@ -1,9 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { regWarnings, splitList } from "@/lib/activity-week-conflicts";
+import {
+  defaultPlacements,
+  GRID_ROWS,
+  TEACHING_PERIODS,
+  timetableRows,
+  type TimetableRow,
+} from "@/lib/activity-week-grid";
 import { ACTIVITY_WEEK_SEED } from "@/lib/activity-week-seed";
-import type { ConflictItem } from "@/lib/activity-week-types";
+import type { ActivityEntry, ConflictItem } from "@/lib/activity-week-types";
 
 const DURATION_OPTS = [
   "30分鐘",
@@ -18,6 +25,16 @@ const DURATION_OPTS = [
 const VENUE_OPTS = ACTIVITY_WEEK_SEED.venues.map((v) =>
   v.code ? `${v.code} ${v.name}` : v.name,
 );
+
+const PERIOD_HEADS = GRID_ROWS.filter((row) => row.kind === "period");
+
+function seedEntries(): ActivityEntry[] {
+  return ACTIVITY_WEEK_SEED.seed.map((item) => ({
+    ...item,
+    source: "seed",
+    revised: false,
+  }));
+}
 
 const EMPTY = {
   title: "",
@@ -38,6 +55,9 @@ export function ActivityWeekRegisterClient() {
   const [form, setForm] = useState(EMPTY);
   const [agreed, setAgreed] = useState(false);
   const [known, setKnown] = useState<ConflictItem[]>([]);
+  const [timetable, setTimetable] = useState<TimetableRow[]>(() =>
+    timetableRows(seedEntries(), defaultPlacements()),
+  );
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +68,9 @@ export function ActivityWeekRegisterClient() {
       const data = (await res.json()) as {
         seed?: ConflictItem[];
         submissions?: ConflictItem[];
+        timetable?: TimetableRow[];
       };
+      if (Array.isArray(data.timetable) && data.timetable.length) setTimetable(data.timetable);
       const seed = (data.seed ?? []).map((item) => ({
         ...item,
         periods: item.periods ?? [],
@@ -140,6 +162,61 @@ export function ActivityWeekRegisterClient() {
   const dateValue = /^\d{4}-\d{2}-\d{2}$/.test(form.dateOrWindow) ? form.dateOrWindow : "";
 
   return (
+    <div className="space-y-6">
+      <div className="overflow-x-auto rounded-xl border border-[var(--brand-line)] bg-white shadow-sm">
+        <table className="w-full min-w-[880px] border-collapse text-left text-sm">
+          <thead className="bg-[var(--brand-soft)] text-[var(--brand-muted)]">
+            <tr>
+              <th className="sticky left-0 bg-[var(--brand-soft)] px-3 py-2">日子</th>
+              {PERIOD_HEADS.map((period) => (
+                <th key={period.name} className="px-3 py-2 font-medium">
+                  <div>{period.name}</div>
+                  <div className="text-xs font-normal">{period.time}</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {timetable.map((row, index) => {
+              const showGroup = index === 0 || timetable[index - 1]?.group !== row.group;
+              return (
+                <Fragment key={row.date}>
+                  {showGroup ? (
+                    <tr className="bg-[var(--brand-soft)]/60">
+                      <th
+                        colSpan={TEACHING_PERIODS.length + 1}
+                        className="px-3 py-1.5 text-left text-xs font-semibold text-[var(--brand-ink)]"
+                      >
+                        {row.group}
+                      </th>
+                    </tr>
+                  ) : null}
+                  <tr key={row.date} className="border-t border-[var(--brand-line)] align-top">
+                    <th className="sticky left-0 whitespace-nowrap bg-white px-3 py-2 text-left font-medium text-[var(--brand-ink)]">
+                      {row.label}
+                    </th>
+                    {TEACHING_PERIODS.map((period) => {
+                      const items = row.cells[period] ?? [];
+                      return (
+                        <td key={period} className="px-3 py-2 text-[var(--brand-ink)]">
+                          {items.length
+                            ? items.map((item) => (
+                                <div key={item.title}>
+                                  {item.title}
+                                  <span className="text-[var(--brand-muted)]"> {item.venue}</span>
+                                </div>
+                              ))
+                            : "—"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     <form className="section-block grid gap-3 sm:grid-cols-2" onSubmit={onSubmit}>
         <label className="text-sm sm:col-span-2">
           <span className="text-[var(--brand-muted)]">活動名稱 *</span>
@@ -336,5 +413,6 @@ export function ActivityWeekRegisterClient() {
           </button>
         </div>
       </form>
+    </div>
   );
 }

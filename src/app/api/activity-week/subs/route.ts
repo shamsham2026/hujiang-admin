@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { timetableRows } from "@/lib/activity-week-grid";
 import { isAuthorizedFromRequest } from "@/lib/site-gate";
 import {
   deleteSubmission,
@@ -16,16 +17,20 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function publicBody(entries: Awaited<ReturnType<typeof getActivityState>>["entries"]) {
+function publicBody(
+  entries: Awaited<ReturnType<typeof getActivityState>>["entries"],
+  placements: Awaited<ReturnType<typeof getActivityState>>["store"]["placements"],
+) {
   return {
     seed: entries.filter((e) => e.builtin).map(toConflictItem),
     submissions: entries.filter((e) => !e.builtin).map(toConflictItem),
+    timetable: timetableRows(entries, placements),
   };
 }
 
 export async function GET(req: Request) {
   const { store, entries, persistence } = await getActivityState();
-  const body = publicBody(entries);
+  const body = publicBody(entries, store.placements);
   if (!isAuthorizedFromRequest(req)) {
     return NextResponse.json(body);
   }
@@ -48,7 +53,7 @@ export async function DELETE(req: Request) {
     const entries = await deleteSubmission(id);
     const { store, persistence } = await getActivityState();
     return NextResponse.json({
-      ...publicBody(entries),
+      ...publicBody(entries, store.placements),
       entries,
       placements: store.placements,
       updatedAt: store.updatedAt,
@@ -106,7 +111,7 @@ export async function POST(req: Request) {
     }
     const { store, entries, persistence } = await getActivityState();
     return NextResponse.json({
-      ...publicBody(entries),
+      ...publicBody(entries, store.placements),
       entries,
       placements: store.placements,
       updatedAt: store.updatedAt,

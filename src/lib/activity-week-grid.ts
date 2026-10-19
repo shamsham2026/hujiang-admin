@@ -337,6 +337,39 @@ export function alignStoredPlacements(
   return { placements: next, changed };
 }
 
+export type TimetableCell = { title: string; venue: string };
+
+export type TimetableRow = {
+  date: string;
+  label: string;
+  group: string;
+  cells: Record<string, TimetableCell[]>;
+};
+
+/** One row per activity day. Same activity on many classes is listed once. */
+export function timetableRows(
+  entries: Pick<ActivityEntry, "id" | "title" | "venue">[],
+  placements: Pick<ActivityPlacement, "entryId" | "date" | "period">[],
+): TimetableRow[] {
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  return activityDays().map((day) => {
+    const cells: Record<string, TimetableCell[]> = {};
+    for (const period of TEACHING_PERIODS) {
+      const seen = new Set<string>();
+      const list: TimetableCell[] = [];
+      for (const placement of placements) {
+        if (placement.date !== day.date || placement.period !== period) continue;
+        const entry = byId.get(placement.entryId);
+        if (!entry || seen.has(entry.id)) continue;
+        seen.add(entry.id);
+        list.push({ title: entry.title, venue: venueCode(entry.venue) });
+      }
+      cells[period] = list;
+    }
+    return { date: day.date, label: day.label, group: day.group, cells };
+  });
+}
+
 export function isClassCode(value: string): boolean {
   return CLASS_CODES.includes(value);
 }

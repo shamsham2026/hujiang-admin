@@ -7,6 +7,7 @@ import {
   cellsForDay,
   defaultPlacements,
   expandPeriods,
+  timetableRows,
   venueKey,
 } from "../src/lib/activity-week-grid.ts";
 import { ACTIVITY_WEEK_SEED } from "../src/lib/activity-week-seed.ts";
@@ -159,5 +160,17 @@ const sameOnly = cellsForDay("2026-12-18", [hallA], [
   },
 ]);
 assert.equal(sameOnly.get("1A|第1節")?.[0].conflict, false);
+
+const table = timetableRows(
+  ACTIVITY_WEEK_SEED.seed.map((item) => ({ ...item, source: "seed" as const, revised: false })),
+  seeded,
+);
+const jan5 = table.find((row) => row.date === "2026-01-05");
+assert.deepEqual(jan5?.cells["第1節"], [{ title: "課室活動", venue: "課" }]);
+assert.deepEqual(jan5?.cells["第2節"], []);
+const jul2 = table.find((row) => row.date === "2026-07-02");
+assert.equal(jul2?.cells["第1節"]?.[0].title, "畢業禮總綵排");
+assert.ok(table.some((row) => row.date === "2026-12-16"));
+assert.ok(!table.some((row) => row.date === "2026-07-09"));
 
 console.log("activity-week checks ok", seeded.length);
