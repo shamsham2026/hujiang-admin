@@ -20,6 +20,9 @@ yarn-error.log*
 # Local env files
 .env*.local
 
+# Activity-week admin saves (blob in production)
+data/activity-week-subs.json
+
 # Vercel
 .vercel
 

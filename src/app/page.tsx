@@ -12,6 +12,12 @@ const MODULES = [
     ready: true,
   },
   {
+    href: "/activity-week",
+    title: "活動週安排",
+    desc: "修訂已知活動、排入日格，同事由登記入口提交",
+    ready: true,
+  },
+  {
     href: "/exam-papers",
     title: "試卷處理",
     desc: "簽批→覆核→印刷→鎖存 checklist，即刻剔",
