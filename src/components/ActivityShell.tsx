@@ -5,33 +5,47 @@ import type { ReactNode } from "react";
 export function ActivityShell({
   title,
   children,
+  titleBelowLogo = false,
 }: {
   title: string;
   children: ReactNode;
+  titleBelowLogo?: boolean;
 }) {
+  const crest = (
+    <Link
+      href="/"
+      className="shrink-0 rounded-full bg-white p-0.5 shadow-sm ring-1 ring-[var(--brand-line)] hover:ring-[var(--brand-accent)]"
+      aria-label="回行政管理平台"
+      title="回行政管理平台"
+    >
+      <Image
+        src="/brand/crest.png"
+        alt="滬江小學校徽"
+        width={56}
+        height={56}
+        className="rounded-full"
+        priority
+      />
+    </Link>
+  );
   return (
     <div className="site-shell flex min-h-screen flex-col">
       <header className="sticky top-0 z-50 border-b border-[var(--brand-line)] bg-white/95 shadow-sm backdrop-blur">
-        <div className="mx-auto flex min-h-[4.25rem] w-full max-w-6xl items-center gap-3 px-3 py-2 sm:gap-4 sm:px-4">
-          <Link
-            href="/"
-            className="shrink-0 rounded-full bg-white p-0.5 shadow-sm ring-1 ring-[var(--brand-line)] hover:ring-[var(--brand-accent)]"
-            aria-label="回行政管理平台"
-            title="回行政管理平台"
-          >
-            <Image
-              src="/brand/crest.png"
-              alt="滬江小學校徽"
-              width={56}
-              height={56}
-              className="rounded-full"
-              priority
-            />
-          </Link>
-          <h1 className="font-display min-w-0 flex-1 text-base font-bold leading-snug tracking-tight text-[var(--brand-ink)] sm:text-xl">
-            {title}
-          </h1>
-        </div>
+        {titleBelowLogo ? (
+          <div className="mx-auto w-full max-w-6xl px-4 py-3">
+            {crest}
+            <h1 className="font-display mt-3 text-2xl font-bold leading-snug tracking-tight text-[var(--brand-ink)] sm:text-3xl">
+              {title}
+            </h1>
+          </div>
+        ) : (
+          <div className="mx-auto flex min-h-[4.25rem] w-full max-w-6xl items-center gap-3 px-3 py-2 sm:gap-4 sm:px-4">
+            {crest}
+            <h1 className="font-display min-w-0 flex-1 text-base font-bold leading-snug tracking-tight text-[var(--brand-ink)] sm:text-xl">
+              {title}
+            </h1>
+          </div>
+        )}
       </header>
       <main className="site-main relative z-10 mx-auto w-full max-w-6xl flex-1 px-4 pb-10 pt-6">
         {children}

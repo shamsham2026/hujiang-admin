@@ -122,16 +122,7 @@ export function ActivityWeekRegisterClient() {
   const dateValue = /^\d{4}-\d{2}-\d{2}$/.test(form.dateOrWindow) ? form.dateOrWindow : "";
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-bold text-[var(--brand-ink)] sm:text-3xl">
-          2026/27年度各活動週活動登記表格
-        </h1>
-        <p className="mt-1 text-sm text-[var(--brand-muted)]">
-          窗口：上學期 1/4–8｜下學期 6/16–7/8｜期考後 12/16–18、21
-        </p>
-      </div>
-      <form className="section-block grid gap-3 sm:grid-cols-2" onSubmit={onSubmit}>
+    <form className="section-block grid gap-3 sm:grid-cols-2" onSubmit={onSubmit}>
         <label className="text-sm sm:col-span-2">
           <span className="text-[var(--brand-muted)]">活動名稱 *</span>
           <input
@@ -267,6 +258,5 @@ export function ActivityWeekRegisterClient() {
           </button>
         </div>
       </form>
-    </div>
   );
 }

@@ -13,7 +13,7 @@ export default async function ActivityWeekRegisterPage({
   const { token } = await params;
   if (token !== AW_REG_TOKEN) notFound();
   return (
-    <ActivityShell title="活動週登記">
+    <ActivityShell title="2026/27年度各活動週活動登記表格" titleBelowLogo>
       <ActivityWeekRegisterClient />
     </ActivityShell>
   );
