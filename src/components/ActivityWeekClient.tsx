@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ACTIVITY_WEEK_SEED,
-  type ActivitySeedItem,
-} from "@/lib/activity-week-seed";
+import { ACTIVITY_WEEK_SEED } from "@/lib/activity-week-seed";
+
+type ActivitySeedItem = (typeof ACTIVITY_WEEK_SEED.seed)[number];
 import type {
   ActivityWeekSubmission,
   ActivityWeekView,

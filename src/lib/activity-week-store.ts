@@ -1,10 +1,9 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { get, put } from "@vercel/blob";
-import {
-  ACTIVITY_WEEK_SEED,
-  type ActivitySeedItem,
-} from "./activity-week-seed";
+import { ACTIVITY_WEEK_SEED } from "./activity-week-seed";
+
+type ActivitySeedItem = (typeof ACTIVITY_WEEK_SEED.seed)[number];
 
 export type ActivityWeekSubmission = {
   id: string;
