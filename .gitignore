@@ -20,7 +20,7 @@ yarn-error.log*
 # Local env files
 .env*.local
 
-# Activity-week admin saves (blob in production)
+# Activity-week admin saves (GitHub store in production; local JSON without a token)
 data/activity-week-subs.json
 
 # Vercel

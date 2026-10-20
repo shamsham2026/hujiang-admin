@@ -1,5 +1,5 @@
 import { ACTIVITY_WEEK_SEED } from "./activity-week-seed";
-import type { ConflictItem } from "./activity-week-types";
+import type { ActivityEntry, ConflictItem } from "./activity-week-types";
 
 function enumerateIso(start: string, end: string): string[] {
   const a = new Date(`${start}T00:00:00Z`);
@@ -82,6 +82,44 @@ export function parseDateOrWindow(raw: string): string[] {
 
 export function coversDate(item: { dateOrWindow: string }, iso: string): boolean {
   return parseDateOrWindow(item.dateOrWindow).includes(iso);
+}
+
+/** Activities whose date window includes this calendar day. */
+export function conflictsForDate<T extends { dateOrWindow: string }>(iso: string, items: T[]): T[] {
+  const day = iso.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return [];
+  return items.filter((item) => coversDate(item, day));
+}
+
+const PERIOD_ORDER = ["班主任節", "第1節", "第2節", "第3節", "第4節", "第5節", "全日", "頭三節", "一節／班"];
+
+/**
+ * Seed, platform submissions, and day-grid placements that occupy this calendar day.
+ * A placement on the day is included even when the row's window does not list that date.
+ */
+export function activitiesForDate(
+  iso: string,
+  entries: ActivityEntry[],
+  placements: { entryId: string; date: string; period: string }[],
+): ActivityEntry[] {
+  const day = iso.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return [];
+  const out: ActivityEntry[] = [];
+  for (const entry of entries) {
+    const placed = placements.filter((p) => p.entryId === entry.id && p.date === day);
+    if (!coversDate(entry, day) && placed.length === 0) continue;
+    const periods = [...entry.periods];
+    for (const placement of placed) {
+      if (placement.period && !periods.includes(placement.period)) periods.push(placement.period);
+    }
+    periods.sort((a, b) => {
+      const ia = PERIOD_ORDER.indexOf(a);
+      const ib = PERIOD_ORDER.indexOf(b);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+    out.push({ ...entry, periods });
+  }
+  return out;
 }
 
 export function isHallVenue(venue: string | null | undefined): boolean {

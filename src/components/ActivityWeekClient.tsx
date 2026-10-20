@@ -2,20 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { ActivityWeekGrid } from "@/components/ActivityWeekGrid";
-import { constraintLines, parseDateOrWindow } from "@/lib/activity-week-conflicts";
+import { activitiesForDate, constraintLines } from "@/lib/activity-week-conflicts";
 import { AW_REG_PATH } from "@/lib/activity-week-reg";
 import {
   activityDays,
   defaultDay,
+  formatDayLabel,
   suggestPlacements,
 } from "@/lib/activity-week-grid";
-import {
-  CALENDAR_RULE,
-  CANDIDATES,
-  DUTY_REFERENCE,
-  P1_THEATRE_NOTE,
-  dayHints,
-} from "@/lib/activity-week-planning";
+import { CANDIDATES, P1_THEATRE_NOTE } from "@/lib/activity-week-planning";
 import { ACTIVITY_WEEK_SEED } from "@/lib/activity-week-seed";
 import type { ActivityEntry, ActivityPlacement } from "@/lib/activity-week-types";
 
@@ -47,6 +42,7 @@ export function ActivityWeekClient() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [date, setDate] = useState(defaultDay());
+  const [queryDate, setQueryDate] = useState(defaultDay());
   const [armedId, setArmedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<ActivityEntry | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -182,65 +178,112 @@ export function ActivityWeekClient() {
 
   const submissions = entries.filter((e) => e.source === "platform");
   const dayEntries = useMemo(
-    () => entries.filter((e) => parseDateOrWindow(e.dateOrWindow).includes(date)),
-    [entries, date],
+    () => activitiesForDate(date, entries, placements),
+    [entries, placements, date],
   );
   const unplaced = dayEntries.filter(
     (e) => !placements.some((p) => p.entryId === e.id && p.date === date),
   );
   const armed = entries.find((e) => e.id === armedId) ?? null;
   const dayRules = constraintLines(date);
+  const dateInList = DAYS.some((d) => d.date === date);
+
+  function runQuery(event: FormEvent) {
+    event.preventDefault();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(queryDate)) {
+      setError("請揀日期");
+      return;
+    }
+    setError(null);
+    setDate(queryDate);
+    setArmedId(null);
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-[var(--brand-ink)]">活動週安排</h1>
-          <p className="mt-1 text-sm text-[var(--brand-muted)]">
-            上學期 1/4–8｜下學期 6/16–7/8｜期考後 12/16–18、21。7/9 結業禮唔排活動。
-            {CALENDAR_RULE}
-          </p>
-        </div>
+        <h1 className="font-display text-3xl font-bold text-[var(--brand-ink)]">活動週安排</h1>
         <a href={AW_REG_PATH} className="btn-primary">
           同事登記入口
         </a>
       </div>
 
+      <section className="section-block space-y-3">
+        <h2 className="section-title">某日有冇活動</h2>
+        <form className="flex flex-wrap items-end gap-3" onSubmit={runQuery}>
+          <label className="text-base font-medium text-[var(--brand-ink)]">
+            日期
+            <input
+              type="date"
+              className="field mt-1 min-w-[12rem] text-lg"
+              value={queryDate}
+              onChange={(e) => setQueryDate(e.target.value)}
+              required
+            />
+          </label>
+          <button type="submit" className="btn-primary px-6 py-2.5 text-base">
+            查詢
+          </button>
+        </form>
+        <h3 className="font-display text-xl font-bold text-[var(--brand-ink)]">{formatDayLabel(date)}</h3>
+        {dayEntries.length === 0 ? (
+          <p className="text-lg font-semibold text-[var(--brand-ink)]">該日暫無活動</p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-[var(--brand-line)] bg-white">
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <thead className="bg-[var(--brand-soft)] text-[var(--brand-ink)]">
+                <tr>
+                  {["活動", "節", "場地", "對象", "負責", "Hold"].map((label) => (
+                    <th key={label} className="px-3 py-2">
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {dayEntries.map((entry) => (
+                  <tr key={entry.id} className="border-t border-[var(--brand-line)] align-top">
+                    <td className="px-3 py-2 font-medium">{entry.title}</td>
+                    <td className="px-3 py-2">{entry.periods.length ? entry.periods.join("、") : "—"}</td>
+                    <td className="px-3 py-2">{entry.venue || "—"}</td>
+                    <td className="px-3 py-2">{entry.audience || "—"}</td>
+                    <td className="px-3 py-2">{entry.owner || "—"}</td>
+                    <td className="px-3 py-2">{entry.hold ? "是" : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
 
       <section className="section-block space-y-3">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <label className="text-sm">
-            <span className="text-[var(--brand-muted)]">邊一日</span>
-            <select
-              className="field mt-1"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            >
-              {GROUPS.map((group) => (
-                <optgroup key={group} label={group}>
-                  {DAYS.filter((d) => d.group === group).map((d) => (
-                    <option key={d.date} value={d.date}>
-                      {d.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
-          <p className="max-w-xl text-xs leading-relaxed text-[var(--brand-muted)]">
-            先撳節目「排入」再撳格子，或者拖入格子。同一格再撳個節目就可以移走。C 有蓋操場、B
-            籃球場、E 飲食區、H 禮堂、106 室；沒註明場地＝課室。C1 教師持咪、〈教師〉主持、（教師）統籌。
-            {DUTY_REFERENCE}
-          </p>
-        </div>
-        {dayHints(date).length ? (
-          <ul className="list-disc space-y-1 pl-5 text-sm text-[var(--brand-ink)]">
-            {dayHints(date).map((line) => (
-              <li key={line}>{line}</li>
+        <h2 className="section-title">排程</h2>
+        <label className="text-sm font-medium text-[var(--brand-ink)]">
+          日子
+          <select
+            className="field mt-1"
+            value={date}
+            onChange={(e) => {
+              setDate(e.target.value);
+              setQueryDate(e.target.value);
+              setArmedId(null);
+            }}
+          >
+            {!dateInList ? <option value={date}>{formatDayLabel(date)}</option> : null}
+            {GROUPS.map((group) => (
+              <optgroup key={group} label={group}>
+                {DAYS.filter((d) => d.group === group).map((d) => (
+                  <option key={d.date} value={d.date}>
+                    {d.label}
+                  </option>
+                ))}
+              </optgroup>
             ))}
-          </ul>
-        ) : null}
+          </select>
+        </label>
         {dayRules.length ? (
           <ul className="list-disc space-y-1 pl-5 text-sm text-amber-950">
             {dayRules.map((line) => (
@@ -249,9 +292,7 @@ export function ActivityWeekClient() {
           </ul>
         ) : null}
         {armed ? (
-          <p className="text-sm font-medium text-[var(--brand-ink)]">
-            排入中：{armed.title}。撳格子放下，或者再撳一次「排入」取消。
-          </p>
+          <p className="text-sm font-medium text-[var(--brand-ink)]">排入中：{armed.title}</p>
         ) : null}
         <div className="flex flex-wrap gap-2">
           {dayEntries.map((entry) => {
@@ -290,12 +331,9 @@ export function ActivityWeekClient() {
               </div>
             );
           })}
-          {dayEntries.length === 0 ? (
-            <p className="text-sm text-[var(--brand-muted)]">呢日未有已知或已提交節目。</p>
-          ) : null}
         </div>
         {unplaced.length ? (
-          <p className="text-xs text-[var(--brand-muted)]">
+          <p className="text-sm font-medium text-[var(--brand-ink)]">
             未排入：{unplaced.map((e) => e.title).join("、")}
           </p>
         ) : null}
@@ -345,9 +383,6 @@ export function ActivityWeekClient() {
             重新載入
           </button>
         </div>
-        <p className="text-xs text-[var(--brand-muted)]">
-          重新載入只會再讀已儲存資料，唔會清走修訂。內建項目可逐項還原。
-        </p>
         <div className="overflow-x-auto rounded-xl border border-[var(--brand-line)] bg-white shadow-sm">
           <table className="w-full min-w-[860px] text-left text-sm">
             <thead className="bg-[var(--brand-soft)] text-[var(--brand-muted)]">
@@ -446,7 +481,6 @@ export function ActivityWeekClient() {
               label="節"
               value={draft.periods}
               onChange={(periods) => patchDraft(setDraft, setDirty, { periods })}
-              placeholder="第1節、第2節 或 全日"
             />
             <Field label="負責" value={draft.owner} onChange={(owner) => patchDraft(setDraft, setDirty, { owner })} />
             <Field label="軌／窗口" value={draft.track} onChange={(track) => patchDraft(setDraft, setDirty, { track })} />

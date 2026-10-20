@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { parseDateOrWindow } from "../src/lib/activity-week-conflicts.ts";
+import { activitiesForDate, conflictsForDate, parseDateOrWindow } from "../src/lib/activity-week-conflicts.ts";
 import { isHallFull } from "../src/lib/activity-week-conflicts.ts";
 import {
   alignStoredPlacements,
@@ -172,5 +172,27 @@ const jul2 = table.find((row) => row.date === "2026-07-02");
 assert.equal(jul2?.cells["第1節"]?.[0].title, "畢業禮總綵排");
 assert.ok(table.some((row) => row.date === "2026-12-16"));
 assert.ok(!table.some((row) => row.date === "2026-07-09"));
+
+const catalog = ACTIVITY_WEEK_SEED.seed.map(
+  (item): ActivityEntry => ({ ...item, source: "seed", revised: false }),
+);
+const jan5hits = activitiesForDate("2026-01-05", catalog, []);
+assert.deepEqual(
+  jan5hits.map((item) => item.title),
+  ["課室活動", "煤氣講座"],
+);
+assert.equal(jan5hits.find((item) => item.title === "煤氣講座")?.hold, true);
+assert.equal(jan5hits.find((item) => item.title === "煤氣講座")?.venue, "408室");
+assert.deepEqual(activitiesForDate("2026-03-01", catalog, []), []);
+assert.deepEqual(
+  conflictsForDate("2026-01-05", catalog).map((item) => item.title),
+  ["課室活動", "煤氣講座"],
+);
+const placedOffWindow = activitiesForDate("2026-03-02", catalog, [
+  { entryId: "sem1-p5-gas", date: "2026-03-02", period: "第3節" },
+]);
+assert.equal(placedOffWindow.length, 1);
+assert.equal(placedOffWindow[0]?.title, "煤氣講座");
+assert.deepEqual(placedOffWindow[0]?.periods, ["第3節"]);
 
 console.log("activity-week checks ok", seeded.length);

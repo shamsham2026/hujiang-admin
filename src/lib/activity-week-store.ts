@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { get, put } from "@vercel/blob";
 import { splitList } from "./activity-week-conflicts";
+import { friendlyGitHubError, githubStore, githubStoreEnabled } from "./github-store";
 import {
   alignStoredPlacements,
   isClassCode,
@@ -25,19 +25,17 @@ type StoreShape = {
 };
 
 const LOCAL_PATH = path.join(process.cwd(), "data", "activity-week-subs.json");
-const BLOB_PATHNAME = "hujiang-admin/activity-week-subs.json";
+/** Same Cover store repo, dedicated path already used on Production. */
+const META_PATHNAME = "activity-week/subs.json";
 
 declare global {
   var __hujiangAwSubs: StoreShape | undefined;
+  var __hujiangAwSha: string | null | undefined;
   var __hujiangAwSubsLock: Promise<void> | undefined;
 }
 
 function clone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v)) as T;
-}
-
-function hasBlob(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
 function emptyStore(): StoreShape {
@@ -84,34 +82,41 @@ async function writeLocal(store: StoreShape): Promise<void> {
   await fs.writeFile(LOCAL_PATH, JSON.stringify(store, null, 2), "utf8");
 }
 
-async function readBlob(): Promise<StoreShape | null> {
-  if (!hasBlob()) return null;
-  try {
-    const result = await get(BLOB_PATHNAME, { access: "private", useCache: false });
-    if (!result?.stream) return null;
-    const text = await new Response(result.stream).text();
-    const parsed = JSON.parse(text) as unknown;
-    return isStore(parsed) ? normalize(parsed) : null;
-  } catch {
-    return null;
-  }
+async function readGithub(): Promise<{ store: StoreShape; sha: string } | null> {
+  if (!githubStoreEnabled()) return null;
+  const file = await githubStore.read(META_PATHNAME);
+  if (!file) return null;
+  const parsed = JSON.parse(file.text) as unknown;
+  if (!isStore(parsed)) return null;
+  return { store: normalize(parsed), sha: file.sha };
 }
 
-async function writeBlob(store: StoreShape): Promise<void> {
-  if (!hasBlob()) return;
-  await put(BLOB_PATHNAME, JSON.stringify(store, null, 2), {
-    access: "private",
-    contentType: "application/json",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-  });
+async function writeGithub(store: StoreShape, sha: string | null): Promise<string> {
+  return githubStore.write(
+    META_PATHNAME,
+    JSON.stringify(store, null, 2),
+    sha,
+    "update activity-week/subs.json",
+  );
 }
 
 async function persist(store: StoreShape): Promise<void> {
   store.updatedAt = new Date().toISOString();
+  if (githubStoreEnabled()) {
+    try {
+      globalThis.__hujiangAwSha = await writeGithub(store, globalThis.__hujiangAwSha ?? null);
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status !== 409) throw new Error(friendlyGitHubError(err));
+      const fresh = await readGithub();
+      globalThis.__hujiangAwSha = await writeGithub(store, fresh?.sha ?? null);
+    }
+  } else if (process.env.VERCEL) {
+    throw new Error("GitHub store 未設定（GITHUB_STORE_TOKEN）");
+  } else {
+    await writeLocal(store);
+  }
   globalThis.__hujiangAwSubs = clone(store);
-  if (hasBlob()) await writeBlob(store);
-  else await writeLocal(store);
 }
 
 async function withLock<T>(fn: () => Promise<T>): Promise<T> {
@@ -146,10 +151,12 @@ async function load(): Promise<StoreShape> {
   if (globalThis.__hujiangAwSubs) {
     return ensureSeeded(clone(globalThis.__hujiangAwSubs));
   }
-  const fromBlob = await readBlob();
-  if (fromBlob) {
-    globalThis.__hujiangAwSubs = fromBlob;
-    return ensureSeeded(clone(fromBlob));
+  if (githubStoreEnabled()) {
+    const fromGithub = await readGithub();
+    const store = fromGithub?.store ?? emptyStore();
+    globalThis.__hujiangAwSha = fromGithub?.sha ?? null;
+    globalThis.__hujiangAwSubs = store;
+    return ensureSeeded(clone(store));
   }
   const fromLocal = await readLocal();
   if (fromLocal) {
@@ -161,8 +168,8 @@ async function load(): Promise<StoreShape> {
   return ensureSeeded(clone(fresh));
 }
 
-export function persistenceMode(): "blob" | "local-json" {
-  return hasBlob() ? "blob" : "local-json";
+export function persistenceMode(): "github" | "local-json" {
+  return githubStoreEnabled() ? "github" : "local-json";
 }
 
 export type EditablePatch = {
