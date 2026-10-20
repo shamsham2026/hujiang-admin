@@ -5,6 +5,7 @@ import { BrandMark } from "./BrandMark";
 const NAV = [
   { href: "/", label: "總平台" },
   { href: "/timetable", label: "有效課表" },
+  { href: "/activity-week", label: "活動週" },
   { href: "/exam-papers", label: "試卷處理" },
   {
     href: "https://hujiang-cover.vercel.app/lookup",
