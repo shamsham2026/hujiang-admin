@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { activitiesForDate, conflictsForDate, parseDateOrWindow } from "../src/lib/activity-week-conflicts.ts";
+import { activitiesForDate, conflictsForDate, parseDateOrWindow, regWarnings } from "../src/lib/activity-week-conflicts.ts";
 import { isHallFull } from "../src/lib/activity-week-conflicts.ts";
 import {
   alignStoredPlacements,
@@ -194,5 +194,88 @@ const placedOffWindow = activitiesForDate("2026-03-02", catalog, [
 assert.equal(placedOffWindow.length, 1);
 assert.equal(placedOffWindow[0]?.title, "煤氣講座");
 assert.deepEqual(placedOffWindow[0]?.periods, ["第3節"]);
+
+const known = ACTIVITY_WEEK_SEED.seed.map((item) => ({
+  id: item.id,
+  title: item.title,
+  dateOrWindow: item.dateOrWindow,
+  periods: [...item.periods],
+  venue: item.venue,
+  hold: item.hold,
+}));
+assert.deepEqual(regWarnings("", known, "禮堂"), {
+  conflicts: [],
+  hallFull: false,
+  constraints: [],
+});
+const dateOnly = regWarnings("2026-06-22", known, "");
+assert.deepEqual(dateOnly.conflicts, []);
+assert.equal(dateOnly.hallFull, false);
+assert.deepEqual(dateOnly.constraints, []);
+const hall = regWarnings("2026-06-22", known, "H 禮堂");
+assert.ok(hall.conflicts.some((line) => line.includes("生涯規劃")));
+assert.equal(hall.hallFull, true);
+assert.ok(hall.constraints.some((line) => line.includes("禮堂")));
+const court = regWarnings("2026-06-22", known, "B 籃球場", "全日");
+assert.deepEqual(court.conflicts, []);
+assert.equal(court.hallFull, false);
+assert.deepEqual(court.constraints, []);
+const gas = regWarnings("2026-01-05", known, "408");
+assert.ok(gas.conflicts.some((line) => line.includes("煤氣")));
+assert.equal(gas.hallFull, false);
+const janHall = regWarnings("2026-01-05", known, "禮堂", "第1節");
+assert.deepEqual(janHall.conflicts, []);
+assert.equal(janHall.hallFull, false);
+assert.deepEqual(janHall.constraints, []);
+const morning = regWarnings("2026-12-21", known, "禮堂", "第1節");
+assert.ok(morning.conflicts.some((line) => line.includes("木笛")));
+assert.ok(!morning.conflicts.some((line) => line.includes("STEM")));
+assert.equal(morning.hallFull, false);
+const afternoon = regWarnings("2026-12-21", known, "禮堂", "第5節");
+assert.ok(afternoon.conflicts.some((line) => line.includes("STEM")));
+assert.ok(!afternoon.conflicts.some((line) => line.includes("木笛")));
+const unspecified = regWarnings("2026-12-21", known, "禮堂", "");
+assert.ok(unspecified.conflicts.some((line) => line.includes("木笛")));
+assert.ok(unspecified.conflicts.some((line) => line.includes("STEM")));
+const classroom = regWarnings("2026-01-05", known, "課室", "第1節");
+assert.deepEqual(classroom.conflicts, []);
+assert.deepEqual(classroom.constraints, []);
+const closing = regWarnings("2026-07-09", known, "課室");
+assert.deepEqual(closing.conflicts, []);
+assert.equal(closing.hallFull, false);
+assert.ok(closing.constraints.some((line) => line.includes("結業禮")));
+const gradCourt = regWarnings("2026-07-02", known, "籃球場");
+assert.deepEqual(gradCourt.conflicts, []);
+assert.equal(gradCourt.hallFull, false);
+assert.deepEqual(gradCourt.constraints, []);
+const gradHall = regWarnings("2026-07-02", known, "禮堂", "第3節");
+assert.equal(gradHall.hallFull, true);
+assert.ok(gradHall.conflicts.some((line) => line.includes("畢業禮")));
+const flag = regWarnings("2026-06-18", known, "禮堂", "第1節");
+assert.ok(!flag.conflicts.some((line) => line.includes("升旗")));
+assert.deepEqual(flag.constraints, []);
+const submitted = [
+  ...known,
+  {
+    id: "sub-cover",
+    title: "英文週",
+    dateOrWindow: "2026-12-16",
+    periods: ["第2節"],
+    venue: "有蓋操場",
+    hold: false,
+  },
+];
+assert.ok(
+  regWarnings("2026-12-16", submitted, "C 有蓋操場", "第2節").conflicts.some((line) =>
+    line.includes("英文週"),
+  ),
+);
+assert.deepEqual(regWarnings("2026-12-16", submitted, "C 有蓋操場", "第4節").conflicts, []);
+
+const blank = timetableRows([], []);
+assert.ok(blank.length > 0);
+assert.ok(blank.every((row) => Object.values(row.cells).every((items) => items.length === 0)));
+assert.ok(blank.some((row) => row.date === "2026-01-05"));
+assert.ok(!blank.some((row) => JSON.stringify(row.cells).includes("課室活動")));
 
 console.log("activity-week checks ok", seeded.length);
