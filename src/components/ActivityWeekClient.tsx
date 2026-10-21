@@ -201,8 +201,7 @@ export function ActivityWeekClient() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="font-display text-3xl font-bold text-[var(--brand-ink)]">活動週安排</h1>
+      <div className="flex flex-wrap items-end justify-end gap-3">
         <a href={AW_REG_PATH} className="btn-primary">
           同事登記入口
         </a>

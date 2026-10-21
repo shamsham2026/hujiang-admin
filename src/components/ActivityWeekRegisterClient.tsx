@@ -9,6 +9,7 @@ import {
   timetableRows,
   type TimetableRow,
 } from "@/lib/activity-week-grid";
+import { AW_REG_WINDOW_LINES } from "@/lib/activity-week-reg";
 import { ACTIVITY_WEEK_SEED } from "@/lib/activity-week-seed";
 import type { ActivityEntry, ConflictItem } from "@/lib/activity-week-types";
 
@@ -218,6 +219,11 @@ export function ActivityWeekRegisterClient() {
         </table>
       </div>
     <form className="section-block grid gap-3 sm:grid-cols-2" onSubmit={onSubmit}>
+        <div className="space-y-1 text-sm leading-relaxed text-[var(--brand-ink)] sm:col-span-2">
+          {AW_REG_WINDOW_LINES.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </div>
         <label className="text-sm sm:col-span-2">
           <span className="text-[var(--brand-muted)]">活動名稱 *</span>
           <input

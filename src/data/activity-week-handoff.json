@@ -348,7 +348,7 @@
     "missing_flags"
   ],
   "registration": {
-    "title": "2026/27年度各活動週活動登記表格",
+    "title": "2026/27年度滬江小學活動週活動安排登記表",
     "url": "https://hujiang-admin.vercel.app/aw-reg/smy-aw-2627",
     "token_constant": "AW_REG_PATH=/aw-reg/smy-aw-2627",
     "status": "live",
