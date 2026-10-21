@@ -9,6 +9,7 @@ import {
   expandPeriods,
   formatShownDate,
   registrationBlankRows,
+  registrationCalendars,
   timetableRows,
   venueKey,
 } from "../src/lib/activity-week-grid.ts";
@@ -315,5 +316,26 @@ assert.equal(
 assert.ok(registrationBlank.every((row) => !row.label.includes("/")));
 assert.equal(formatShownDate("2026-07-02"), "2-7-2026");
 assert.equal(formatShownDate("2026-06-14/15"), "14-6-2026至15-6-2026");
+
+const calendars = registrationCalendars();
+assert.deepEqual(
+  calendars.map((month) => `${month.group}:${month.year}-${String(month.month).padStart(2, "0")}`),
+  ["期考後時間表:2026-12", "上學期活動週:2026-01", "下學期活動週:2026-06", "下學期活動週:2026-07"],
+);
+const listed = calendars.flatMap((month) =>
+  month.weeks.flatMap((week) => week.flatMap((day) => (day ? [day.date] : []))),
+);
+assert.deepEqual(
+  listed,
+  registrationBlank.map((row) => row.date),
+);
+assert.ok(calendars.every((month) => month.weeks.every((week) => week.length === 7)));
+const december16 = calendars[0]?.weeks
+  .flatMap((week) => week.map((day, index) => (day?.date === "2026-12-16" ? index : -1)))
+  .find((index) => index >= 0);
+assert.equal(december16, 3);
+for (const blocked of ["2026-12-15", "2026-12-19", "2026-06-14", "2026-07-09", "2026-01-03"]) {
+  assert.equal(listed.includes(blocked), false, blocked);
+}
 
 console.log("activity-week checks ok", seeded.length);

@@ -411,6 +411,45 @@ export function registrationBlankRows(): TimetableRow[] {
     });
 }
 
+export type RegistrationCalendarDay = {
+  date: string;
+  label: string;
+};
+
+/** One month window. Weeks start 週日. Null cells are days outside the schedulable windows. */
+export type RegistrationCalendarMonth = {
+  group: string;
+  year: number;
+  month: number;
+  weeks: (RegistrationCalendarDay | null)[][];
+};
+
+/** Schedulable registration dates only, December post-exam months first. */
+export function registrationCalendars(): RegistrationCalendarMonth[] {
+  const months: RegistrationCalendarMonth[] = [];
+  const weeks = new Map<string, (RegistrationCalendarDay | null)[]>();
+  for (const row of registrationBlankRows()) {
+    const [year, month, day] = row.date.split("-").map(Number);
+    let bucket = months.find(
+      (item) => item.group === row.group && item.year === year && item.month === month,
+    );
+    if (!bucket) {
+      bucket = { group: row.group, year, month, weeks: [] };
+      months.push(bucket);
+    }
+    const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+    const key = `${row.group}|${year}-${month}|${day - weekday}`;
+    let week = weeks.get(key);
+    if (!week) {
+      week = [null, null, null, null, null, null, null];
+      weeks.set(key, week);
+      bucket.weeks.push(week);
+    }
+    week[weekday] = { date: row.date, label: row.label };
+  }
+  return months;
+}
+
 export function isClassCode(value: string): boolean {
   return CLASS_CODES.includes(value);
 }

@@ -1,21 +1,11 @@
 "use client";
 
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type FocusEvent,
-  type FormEvent,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, type FocusEvent, type FormEvent } from "react";
 import { regWarnings, splitList } from "@/lib/activity-week-conflicts";
 import {
-  GRID_ROWS,
-  TEACHING_PERIODS,
   formatShownDate,
-  registrationBlankRows,
-  type TimetableRow,
+  registrationCalendars,
+  type RegistrationCalendarMonth,
 } from "@/lib/activity-week-grid";
 import { AW_REG_WINDOW_LINES } from "@/lib/activity-week-reg";
 import { revealFocusedField } from "@/lib/reveal-focused-field";
@@ -36,10 +26,8 @@ const VENUE_OPTS = ACTIVITY_WEEK_SEED.venues.map((v) =>
   v.code ? `${v.code} ${v.name}` : v.name,
 );
 
-const PERIOD_HEADS = GRID_ROWS.filter((row) => row.kind === "period");
-
-/** Empty slot template. Known bookings stay off the grid until a real clash. */
-const BLANK_TIMETABLE: TimetableRow[] = registrationBlankRows();
+const WEEKDAY_HEADS = ["日", "一", "二", "三", "四", "五", "六"] as const;
+const REGISTRATION_CALENDARS: RegistrationCalendarMonth[] = registrationCalendars();
 
 function singleDmyToIso(raw: string): string | null {
   const match = raw.trim().match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
@@ -188,60 +176,10 @@ export function ActivityWeekRegisterClient() {
 
   return (
     <div className="space-y-6">
-      <div className="max-w-full min-w-0 overflow-x-auto rounded-xl border border-[var(--brand-line)] bg-white shadow-sm">
-        <table className="w-full min-w-[880px] border-collapse text-left text-sm">
-          <thead className="bg-[var(--brand-soft)] text-[var(--brand-muted)]">
-            <tr>
-              <th className="sticky left-0 bg-[var(--brand-soft)] px-3 py-2">日子</th>
-              {PERIOD_HEADS.map((period) => (
-                <th key={period.name} className="px-3 py-2 font-medium">
-                  <div>{period.name}</div>
-                  <div className="text-xs font-normal">{period.time}</div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {BLANK_TIMETABLE.map((row, index) => {
-              const showGroup = index === 0 || BLANK_TIMETABLE[index - 1]?.group !== row.group;
-              return (
-                <Fragment key={row.date}>
-                  {showGroup ? (
-                    <tr className="bg-[var(--brand-soft)]/60">
-                      <th
-                        colSpan={TEACHING_PERIODS.length + 1}
-                        className="px-3 py-1.5 text-left text-xs font-semibold text-[var(--brand-ink)]"
-                      >
-                        {row.group}
-                      </th>
-                    </tr>
-                  ) : null}
-                  <tr key={row.date} className="border-t border-[var(--brand-line)] align-top">
-                    <th className="sticky left-0 whitespace-nowrap bg-white px-3 py-2 text-left font-medium text-[var(--brand-ink)]">
-                      {row.label}
-                    </th>
-                    {TEACHING_PERIODS.map((period) => {
-                      const items = row.cells[period] ?? [];
-                      return (
-                        <td key={period} className="px-3 py-2 text-[var(--brand-ink)]">
-                          {items.length
-                            ? items.map((item) => (
-                                <div key={item.title}>
-                                  {item.title}
-                                  <span className="text-[var(--brand-muted)]"> {item.venue}</span>
-                                </div>
-                              ))
-                            : "—"}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <RegistrationCalendar
+        selected={dateValue}
+        onPick={(iso) => setForm((current) => ({ ...current, dateOrWindow: iso }))}
+      />
     <form
         id="aw-reg-form"
         className="section-block grid min-w-0 max-w-full gap-3 sm:grid-cols-2"
@@ -468,6 +406,59 @@ export function ActivityWeekRegisterClient() {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function RegistrationCalendar({
+  selected,
+  onPick,
+}: {
+  selected: string;
+  onPick: (iso: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {REGISTRATION_CALENDARS.map((month) => (
+        <section
+          key={`${month.group}-${month.year}-${month.month}`}
+          className="min-w-0 rounded-xl border border-[var(--brand-line)] bg-white p-2 shadow-sm"
+        >
+          <h2 className="text-xs font-semibold leading-snug text-[var(--brand-ink)]">{month.group}</h2>
+          <p className="mt-0.5 text-[11px] text-[var(--brand-muted)]">
+            {month.year}年{month.month}月
+          </p>
+          <div className="mt-1 grid grid-cols-7 gap-0.5 text-center">
+            {WEEKDAY_HEADS.map((name) => (
+              <div key={name} className="text-[10px] leading-4 text-[var(--brand-muted)]">
+                {name}
+              </div>
+            ))}
+            {month.weeks.flatMap((week, weekIndex) =>
+              week.map((day, weekday) =>
+                day ? (
+                  <button
+                    key={day.date}
+                    type="button"
+                    aria-label={day.label}
+                    aria-pressed={selected === day.date}
+                    onClick={() => onPick(day.date)}
+                    className={`rounded-md py-1 text-xs font-semibold leading-none ${
+                      selected === day.date
+                        ? "bg-[var(--brand-accent)] text-white"
+                        : "bg-[var(--brand-soft)] text-[var(--brand-ink)]"
+                    }`}
+                  >
+                    {Number(day.date.slice(8, 10))}
+                  </button>
+                ) : (
+                  <div key={`${month.year}-${month.month}-${weekIndex}-${weekday}`} aria-hidden className="py-1" />
+                ),
+              ),
+            )}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
