@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ActivityShell } from "@/components/ActivityShell";
 import { ActivityWeekRegisterClient } from "@/components/ActivityWeekRegisterClient";
-import { AW_REG_TOKEN } from "@/lib/activity-week-reg";
+import { AW_REG_TITLE, AW_REG_TOKEN } from "@/lib/activity-week-reg";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: AW_REG_TITLE,
+};
 
 export default async function ActivityWeekRegisterPage({
   params,
@@ -13,7 +18,7 @@ export default async function ActivityWeekRegisterPage({
   const { token } = await params;
   if (token !== AW_REG_TOKEN) notFound();
   return (
-    <ActivityShell title="2026/27年度各活動週活動登記表格" titleBelowLogo>
+    <ActivityShell title={AW_REG_TITLE} titleBelowLogo>
       <ActivityWeekRegisterClient />
     </ActivityShell>
   );
