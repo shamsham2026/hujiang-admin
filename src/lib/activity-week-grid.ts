@@ -424,17 +424,24 @@ export type RegistrationCalendarMonth = {
   weeks: (RegistrationCalendarDay | null)[][];
 };
 
+/** Calendar heading. December and January share one first-term title. */
+export function registrationCalendarTitle(group: string): string {
+  if (group === "下學期活動週") return "下學期期考後活動週";
+  return "上學期期考後活動週";
+}
+
 /** Schedulable registration dates only, December post-exam months first. */
 export function registrationCalendars(): RegistrationCalendarMonth[] {
   const months: RegistrationCalendarMonth[] = [];
   const weeks = new Map<string, (RegistrationCalendarDay | null)[]>();
   for (const row of registrationBlankRows()) {
     const [year, month, day] = row.date.split("-").map(Number);
+    const title = registrationCalendarTitle(row.group);
     let bucket = months.find(
-      (item) => item.group === row.group && item.year === year && item.month === month,
+      (item) => item.group === title && item.year === year && item.month === month,
     );
     if (!bucket) {
-      bucket = { group: row.group, year, month, weeks: [] };
+      bucket = { group: title, year, month, weeks: [] };
       months.push(bucket);
     }
     const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();

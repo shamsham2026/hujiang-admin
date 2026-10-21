@@ -417,45 +417,61 @@ function RegistrationCalendar({
   selected: string;
   onPick: (iso: string) => void;
 }) {
+  const groups: { title: string; months: RegistrationCalendarMonth[] }[] = [];
+  for (const month of REGISTRATION_CALENDARS) {
+    const last = groups[groups.length - 1];
+    if (last?.title === month.group) last.months.push(month);
+    else groups.push({ title: month.group, months: [month] });
+  }
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {REGISTRATION_CALENDARS.map((month) => (
-        <section
-          key={`${month.group}-${month.year}-${month.month}`}
-          className="min-w-0 rounded-xl border border-[var(--brand-line)] bg-white p-2 shadow-sm"
-        >
-          <h2 className="text-xs font-semibold leading-snug text-[var(--brand-ink)]">{month.group}</h2>
-          <p className="mt-0.5 text-[11px] text-[var(--brand-muted)]">
-            {month.year}年{month.month}月
-          </p>
-          <div className="mt-1 grid grid-cols-7 gap-0.5 text-center">
-            {WEEKDAY_HEADS.map((name) => (
-              <div key={name} className="text-[10px] leading-4 text-[var(--brand-muted)]">
-                {name}
+    <div className="space-y-3">
+      {groups.map((group) => (
+        <section key={group.title} className="min-w-0">
+          <h2 className="mb-1 text-sm font-semibold leading-snug text-[var(--brand-ink)]">{group.title}</h2>
+          <div className="grid grid-cols-2 gap-2">
+            {group.months.map((month) => (
+              <div
+                key={`${month.year}-${month.month}`}
+                className="min-w-0 rounded-xl border border-[var(--brand-line)] bg-white p-2 shadow-sm"
+              >
+                <p className="text-[11px] text-[var(--brand-muted)]">
+                  {month.year}年{month.month}月
+                </p>
+                <div className="mt-1 grid grid-cols-7 gap-0.5 text-center">
+                  {WEEKDAY_HEADS.map((name) => (
+                    <div key={name} className="text-[10px] leading-4 text-[var(--brand-muted)]">
+                      {name}
+                    </div>
+                  ))}
+                  {month.weeks.flatMap((week, weekIndex) =>
+                    week.map((day, weekday) =>
+                      day ? (
+                        <button
+                          key={day.date}
+                          type="button"
+                          aria-label={day.label}
+                          aria-pressed={selected === day.date}
+                          onClick={() => onPick(day.date)}
+                          className={`rounded-md py-1 text-xs font-semibold leading-none ${
+                            selected === day.date
+                              ? "bg-[var(--brand-accent)] text-white"
+                              : "bg-[var(--brand-soft)] text-[var(--brand-ink)]"
+                          }`}
+                        >
+                          {Number(day.date.slice(8, 10))}
+                        </button>
+                      ) : (
+                        <div
+                          key={`${month.year}-${month.month}-${weekIndex}-${weekday}`}
+                          aria-hidden
+                          className="py-1"
+                        />
+                      ),
+                    ),
+                  )}
+                </div>
               </div>
             ))}
-            {month.weeks.flatMap((week, weekIndex) =>
-              week.map((day, weekday) =>
-                day ? (
-                  <button
-                    key={day.date}
-                    type="button"
-                    aria-label={day.label}
-                    aria-pressed={selected === day.date}
-                    onClick={() => onPick(day.date)}
-                    className={`rounded-md py-1 text-xs font-semibold leading-none ${
-                      selected === day.date
-                        ? "bg-[var(--brand-accent)] text-white"
-                        : "bg-[var(--brand-soft)] text-[var(--brand-ink)]"
-                    }`}
-                  >
-                    {Number(day.date.slice(8, 10))}
-                  </button>
-                ) : (
-                  <div key={`${month.year}-${month.month}-${weekIndex}-${weekday}`} aria-hidden className="py-1" />
-                ),
-              ),
-            )}
           </div>
         </section>
       ))}

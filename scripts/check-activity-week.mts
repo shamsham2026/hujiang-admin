@@ -320,7 +320,16 @@ assert.equal(formatShownDate("2026-06-14/15"), "14-6-2026至15-6-2026");
 const calendars = registrationCalendars();
 assert.deepEqual(
   calendars.map((month) => `${month.group}:${month.year}-${String(month.month).padStart(2, "0")}`),
-  ["期考後時間表:2026-12", "上學期活動週:2026-01", "下學期活動週:2026-06", "下學期活動週:2026-07"],
+  [
+    "上學期期考後活動週:2026-12",
+    "上學期期考後活動週:2026-01",
+    "下學期期考後活動週:2026-06",
+    "下學期期考後活動週:2026-07",
+  ],
+);
+assert.deepEqual(
+  [...new Set(calendars.map((month) => month.group))],
+  ["上學期期考後活動週", "下學期期考後活動週"],
 );
 const listed = calendars.flatMap((month) =>
   month.weeks.flatMap((week) => week.flatMap((day) => (day ? [day.date] : []))),
