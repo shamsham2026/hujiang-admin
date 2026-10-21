@@ -3,7 +3,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { regWarnings, splitList } from "@/lib/activity-week-conflicts";
 import {
-  defaultPlacements,
   GRID_ROWS,
   TEACHING_PERIODS,
   timetableRows,
@@ -11,7 +10,7 @@ import {
 } from "@/lib/activity-week-grid";
 import { AW_REG_WINDOW_LINES } from "@/lib/activity-week-reg";
 import { ACTIVITY_WEEK_SEED } from "@/lib/activity-week-seed";
-import type { ActivityEntry, ConflictItem } from "@/lib/activity-week-types";
+import type { ConflictItem } from "@/lib/activity-week-types";
 
 const DURATION_OPTS = [
   "30分鐘",
@@ -29,13 +28,8 @@ const VENUE_OPTS = ACTIVITY_WEEK_SEED.venues.map((v) =>
 
 const PERIOD_HEADS = GRID_ROWS.filter((row) => row.kind === "period");
 
-function seedEntries(): ActivityEntry[] {
-  return ACTIVITY_WEEK_SEED.seed.map((item) => ({
-    ...item,
-    source: "seed",
-    revised: false,
-  }));
-}
+/** Empty slot template. Known bookings stay off the grid until a real clash. */
+const BLANK_TIMETABLE: TimetableRow[] = timetableRows([], []);
 
 const EMPTY = {
   title: "",
@@ -56,9 +50,6 @@ export function ActivityWeekRegisterClient() {
   const [form, setForm] = useState(EMPTY);
   const [agreed, setAgreed] = useState(false);
   const [known, setKnown] = useState<ConflictItem[]>([]);
-  const [timetable, setTimetable] = useState<TimetableRow[]>(() =>
-    timetableRows(seedEntries(), defaultPlacements()),
-  );
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,9 +60,7 @@ export function ActivityWeekRegisterClient() {
       const data = (await res.json()) as {
         seed?: ConflictItem[];
         submissions?: ConflictItem[];
-        timetable?: TimetableRow[];
       };
-      if (Array.isArray(data.timetable) && data.timetable.length) setTimetable(data.timetable);
       const seed = (data.seed ?? []).map((item) => ({
         ...item,
         periods: item.periods ?? [],
@@ -102,8 +91,8 @@ export function ActivityWeekRegisterClient() {
   }, [load]);
 
   const warnings = useMemo(
-    () => regWarnings(form.dateOrWindow, known),
-    [form.dateOrWindow, known],
+    () => regWarnings(form.dateOrWindow, known, form.venue, form.periods),
+    [form.dateOrWindow, form.venue, form.periods, known],
   );
   const showWarnings =
     warnings.conflicts.length > 0 || warnings.hallFull || warnings.constraints.length > 0;
@@ -178,8 +167,8 @@ export function ActivityWeekRegisterClient() {
             </tr>
           </thead>
           <tbody>
-            {timetable.map((row, index) => {
-              const showGroup = index === 0 || timetable[index - 1]?.group !== row.group;
+            {BLANK_TIMETABLE.map((row, index) => {
+              const showGroup = index === 0 || BLANK_TIMETABLE[index - 1]?.group !== row.group;
               return (
                 <Fragment key={row.date}>
                   {showGroup ? (

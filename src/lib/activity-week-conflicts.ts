@@ -189,13 +189,119 @@ export function constraintLines(dateOrWindow: string): string[] {
   return lines;
 }
 
-export function regWarnings(dateOrWindow: string, items: ConflictItem[]) {
+const TEACHING_SLOTS = ["班主任節", "第1節", "第2節", "第3節", "第4節", "第5節"] as const;
+
+function expandedSlots(periods: string[]): string[] {
+  const out: string[] = [];
+  const add = (name: string) => {
+    if (!out.includes(name)) out.push(name);
+  };
+  for (const raw of periods) {
+    const period = raw.trim();
+    if (!period) continue;
+    if (period.includes("全日")) {
+      TEACHING_SLOTS.forEach(add);
+      continue;
+    }
+    if (period.includes("頭三")) {
+      add("第1節");
+      add("第2節");
+      add("第3節");
+      continue;
+    }
+    if (period.includes("一節") && period.includes("班")) continue;
+    if ((TEACHING_SLOTS as readonly string[]).includes(period)) add(period);
+  }
+  return out;
+}
+
+function asPeriodList(periods: string[] | string | undefined): string[] {
+  if (Array.isArray(periods)) return periods;
+  return splitList(periods ?? "");
+}
+
+/** Shared venues only. 課室／空白＝各班課室，唔當撞場。 */
+function sharedVenue(venue: string): string | null {
+  const v = venue.trim();
+  if (!v || v.includes("課室")) return null;
+  if (v.includes("禮堂") || /^\s*H\b/i.test(v)) return "H";
+  if (v.includes("有蓋") || /^\s*C\b/i.test(v)) return "C";
+  if (v.includes("籃球") || /^\s*B\b/i.test(v)) return "B";
+  if (v.includes("飲食") || /^\s*E\b/i.test(v)) return "E";
+  if (v.includes("106")) return "106";
+  return v.replace(/\s+/g, "").replace(/室$/, "");
+}
+
+function venuesClash(a: string, b: string): boolean {
+  const left = sharedVenue(a);
+  const right = sharedVenue(b);
+  return Boolean(left && right && left === right);
+}
+
+/** Unknown slot overlaps a known booking. Named slots must share a period. */
+function slotsClash(userPeriods: string[], itemPeriods: string[]): boolean {
+  const user = expandedSlots(userPeriods);
+  const item = expandedSlots(itemPeriods);
+  if (!user.length || !item.length) return true;
+  return user.some((slot) => item.includes(slot));
+}
+
+function schoolWideRule(rule: string): boolean {
+  return /TSA|結業禮|唔排全校|唔排活動週/.test(rule);
+}
+
+function hallRule(rule: string): boolean {
+  return /禮堂/.test(rule) && !schoolWideRule(rule);
+}
+
+/**
+ * Colleague register prompts. Empty until the entered date and venue
+ * actually collide with a known booking, submission, or hard block.
+ * A different venue, or the same venue on a different period, stays quiet.
+ */
+export function regWarnings(
+  dateOrWindow: string,
+  items: ConflictItem[],
+  venue = "",
+  periods: string[] | string = "",
+) {
+  const empty = { conflicts: [] as string[], hallFull: false, constraints: [] as string[] };
   const trimmed = dateOrWindow.trim();
-  if (!trimmed) return { conflicts: [] as string[], hallFull: false, constraints: [] as string[] };
+  if (!trimmed) return empty;
+  const dates = datesOf(trimmed);
+  if (!dates.length) return empty;
+
+  const userVenue = venue.trim();
+  const userPeriods = asPeriodList(periods);
+  const titles = new Map<string, string>();
+  for (const date of dates) {
+    for (const item of items) {
+      if (!coversDate(item, date)) continue;
+      if (!venuesClash(userVenue, item.venue ?? "")) continue;
+      if (!slotsClash(userPeriods, item.periods ?? [])) continue;
+      titles.set(item.id, item.title);
+    }
+  }
+
+  const constraints: string[] = [];
+  const seen = new Set<string>();
+  for (const date of dates) {
+    for (const rule of ACTIVITY_WEEK_SEED.constraints) {
+      if (!parseDateOrWindow(rule.date).includes(date)) continue;
+      const line = `${rule.date}：${rule.rule}`;
+      if (seen.has(line)) continue;
+      const blockedDay = schoolWideRule(rule.rule);
+      const blockedHall = hallRule(rule.rule) && isHallVenue(userVenue);
+      if (!blockedDay && !blockedHall) continue;
+      seen.add(line);
+      constraints.push(line);
+    }
+  }
+
   return {
-    conflicts: conflictTitles(trimmed, items),
-    hallFull: isHallFull(trimmed, items),
-    constraints: constraintLines(trimmed),
+    conflicts: [...titles.values()].map((title) => `該天已有${title}活動安排`),
+    hallFull: isHallVenue(userVenue) && dates.some((date) => isHallFull(date, items)),
+    constraints,
   };
 }
 
