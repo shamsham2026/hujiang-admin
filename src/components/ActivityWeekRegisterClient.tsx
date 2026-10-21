@@ -5,7 +5,7 @@ import { regWarnings, splitList } from "@/lib/activity-week-conflicts";
 import {
   GRID_ROWS,
   TEACHING_PERIODS,
-  timetableRows,
+  registrationBlankRows,
   type TimetableRow,
 } from "@/lib/activity-week-grid";
 import { AW_REG_WINDOW_LINES } from "@/lib/activity-week-reg";
@@ -29,7 +29,7 @@ const VENUE_OPTS = ACTIVITY_WEEK_SEED.venues.map((v) =>
 const PERIOD_HEADS = GRID_ROWS.filter((row) => row.kind === "period");
 
 /** Empty slot template. Known bookings stay off the grid until a real clash. */
-const BLANK_TIMETABLE: TimetableRow[] = timetableRows([], []);
+const BLANK_TIMETABLE: TimetableRow[] = registrationBlankRows();
 
 const EMPTY = {
   title: "",

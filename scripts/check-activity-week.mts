@@ -7,6 +7,7 @@ import {
   cellsForDay,
   defaultPlacements,
   expandPeriods,
+  registrationBlankRows,
   timetableRows,
   venueKey,
 } from "../src/lib/activity-week-grid.ts";
@@ -277,5 +278,20 @@ assert.ok(blank.length > 0);
 assert.ok(blank.every((row) => Object.values(row.cells).every((items) => items.length === 0)));
 assert.ok(blank.some((row) => row.date === "2026-01-05"));
 assert.ok(!blank.some((row) => JSON.stringify(row.cells).includes("課室活動")));
+
+const registrationBlank = registrationBlankRows();
+assert.deepEqual(
+  registrationBlank.filter((row) => row.group === "期考後時間表").map((row) => row.date),
+  ["2026-12-16", "2026-12-17", "2026-12-18", "2026-12-21"],
+);
+assert.deepEqual(
+  [...new Set(registrationBlank.map((row) => row.group))],
+  ["期考後時間表", "上學期活動週", "下學期活動週"],
+);
+assert.ok(registrationBlank.findIndex((row) => row.date.startsWith("2026-01")) > 3);
+assert.ok(
+  registrationBlank.findIndex((row) => row.date.startsWith("2026-06")) >
+    registrationBlank.findIndex((row) => row.date.startsWith("2026-01")),
+);
 
 console.log("activity-week checks ok", seeded.length);

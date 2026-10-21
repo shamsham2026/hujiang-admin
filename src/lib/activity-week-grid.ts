@@ -370,6 +370,19 @@ export function timetableRows(
   });
 }
 
+/** Blank registration grid only: 期考後 December, then 上學期 January, then 下學期 June–July. */
+const REGISTRATION_BLANK_GROUPS = ["期考後時間表", "上學期活動週", "下學期活動週"] as const;
+
+export function registrationBlankRows(): TimetableRow[] {
+  const rank = new Map<string, number>(
+    REGISTRATION_BLANK_GROUPS.map((group, index) => [group, index]),
+  );
+  return timetableRows([], []).sort((a, b) => {
+    const fallback = REGISTRATION_BLANK_GROUPS.length;
+    return (rank.get(a.group) ?? fallback) - (rank.get(b.group) ?? fallback);
+  });
+}
+
 export function isClassCode(value: string): boolean {
   return CLASS_CODES.includes(value);
 }
