@@ -79,6 +79,32 @@ export function formatDayLabel(iso: string): string {
   return `${m}/${d} ${WEEKDAY[dt.getUTCDay()]}`;
 }
 
+/** Registration page only: 16-12-2026 週三. */
+export function formatRegistrationDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return `${d}-${m}-${y} ${WEEKDAY[dt.getUTCDay()]}`;
+}
+
+/** Show a stored ISO or compact window as 日-月-年. Other text is unchanged. */
+export function formatShownDate(raw: string): string {
+  const text = raw.trim();
+  const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return `${Number(iso[3])}-${Number(iso[2])}-${iso[1]}`;
+  const compact = text.match(/^(\d{4})-(\d{2})-(\d{2})\/(\d{1,2})$/);
+  if (compact) {
+    const year = compact[1];
+    const month = Number(compact[2]);
+    return `${Number(compact[3])}-${month}-${year}至${Number(compact[4])}-${month}-${year}`;
+  }
+  const range = text.match(/^(\d{4})-(\d{2})-(\d{2})\s*[\/–—-]\s*(\d{4})-(\d{2})-(\d{2})$/);
+  if (range) {
+    return `${Number(range[3])}-${Number(range[2])}-${range[1]}至${Number(range[6])}-${Number(range[5])}-${range[4]}`;
+  }
+  return raw;
+}
+
 /** Selectable activity days. 7/9 結業禮唔喺活動週窗口。 */
 export function activityDays(): DayOption[] {
   const days: DayOption[] = [];
@@ -377,10 +403,12 @@ export function registrationBlankRows(): TimetableRow[] {
   const rank = new Map<string, number>(
     REGISTRATION_BLANK_GROUPS.map((group, index) => [group, index]),
   );
-  return timetableRows([], []).sort((a, b) => {
-    const fallback = REGISTRATION_BLANK_GROUPS.length;
-    return (rank.get(a.group) ?? fallback) - (rank.get(b.group) ?? fallback);
-  });
+  return timetableRows([], [])
+    .map((row) => ({ ...row, label: formatRegistrationDate(row.date) }))
+    .sort((a, b) => {
+      const fallback = REGISTRATION_BLANK_GROUPS.length;
+      return (rank.get(a.group) ?? fallback) - (rank.get(b.group) ?? fallback);
+    });
 }
 
 export function isClassCode(value: string): boolean {

@@ -7,6 +7,7 @@ import {
   cellsForDay,
   defaultPlacements,
   expandPeriods,
+  formatShownDate,
   registrationBlankRows,
   timetableRows,
   venueKey,
@@ -25,6 +26,16 @@ assert.deepEqual(jan, [
 ]);
 assert.deepEqual(parseDateOrWindow("2026-06-14/15"), ["2026-06-14", "2026-06-15"]);
 assert.deepEqual(parseDateOrWindow("1/4–8"), jan);
+assert.deepEqual(parseDateOrWindow("16-12-2026"), ["2026-12-16"]);
+assert.deepEqual(parseDateOrWindow("16-12-2026至21-12-2026"), [
+  "2026-12-16",
+  "2026-12-17",
+  "2026-12-18",
+  "2026-12-19",
+  "2026-12-20",
+  "2026-12-21",
+]);
+assert.deepEqual(parseDateOrWindow("4-1-2027"), ["2027-01-04"]);
 assert.ok(parseDateOrWindow("6/16–7/8").includes("2026-06-16"));
 assert.ok(parseDateOrWindow("6/16–7/8").includes("2026-07-08"));
 assert.ok(!parseDateOrWindow("6/16–7/8").includes("2026-07-09"));
@@ -293,5 +304,16 @@ assert.ok(
   registrationBlank.findIndex((row) => row.date.startsWith("2026-06")) >
     registrationBlank.findIndex((row) => row.date.startsWith("2026-01")),
 );
+assert.equal(
+  registrationBlank.find((row) => row.date === "2026-12-16")?.label,
+  "16-12-2026 週三",
+);
+assert.equal(
+  registrationBlank.find((row) => row.date === "2026-01-04")?.label,
+  "4-1-2026 週日",
+);
+assert.ok(registrationBlank.every((row) => !row.label.includes("/")));
+assert.equal(formatShownDate("2026-07-02"), "2-7-2026");
+assert.equal(formatShownDate("2026-06-14/15"), "14-6-2026至15-6-2026");
 
 console.log("activity-week checks ok", seeded.length);

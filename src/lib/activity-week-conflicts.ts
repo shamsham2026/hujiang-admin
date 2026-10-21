@@ -16,6 +16,16 @@ function enumerateIso(start: string, end: string): string[] {
   return out;
 }
 
+function dmyToIso(day: string, month: string, year: string): string | null {
+  const d = Number(day);
+  const m = Number(month);
+  const y = Number(year);
+  if (!y || m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
+  return `${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
 /** Parse 日期／窗口 into ISO dates. Supports the forms already used on the register form. */
 export function parseDateOrWindow(raw: string): string[] {
   const t = (raw ?? "").trim();
@@ -48,6 +58,21 @@ export function parseDateOrWindow(raw: string): string[] {
 
   const iso = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (iso) return [`${iso[1]}-${iso[2]}-${iso[3]}`];
+
+  const dmyRange = t.match(
+    /^(\d{1,2})-(\d{1,2})-(\d{4})\s*(?:至|–|—|\/)\s*(\d{1,2})-(\d{1,2})-(\d{4})$/,
+  );
+  if (dmyRange) {
+    const start = dmyToIso(dmyRange[1], dmyRange[2], dmyRange[3]);
+    const end = dmyToIso(dmyRange[4], dmyRange[5], dmyRange[6]);
+    if (start && end) return enumerateIso(start, end);
+  }
+
+  const dmy = t.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dmy) {
+    const isoDay = dmyToIso(dmy[1], dmy[2], dmy[3]);
+    return isoDay ? [isoDay] : [];
+  }
 
   const mdRange = t.match(
     /^(\d{1,2})\/(\d{1,2})\s*[\/–—-]\s*(\d{1,2})\/(\d{1,2})$/,

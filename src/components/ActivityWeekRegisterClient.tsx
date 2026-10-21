@@ -13,6 +13,7 @@ import { regWarnings, splitList } from "@/lib/activity-week-conflicts";
 import {
   GRID_ROWS,
   TEACHING_PERIODS,
+  formatShownDate,
   registrationBlankRows,
   type TimetableRow,
 } from "@/lib/activity-week-grid";
@@ -39,6 +40,26 @@ const PERIOD_HEADS = GRID_ROWS.filter((row) => row.kind === "period");
 
 /** Empty slot template. Known bookings stay off the grid until a real clash. */
 const BLANK_TIMETABLE: TimetableRow[] = registrationBlankRows();
+
+function singleDmyToIso(raw: string): string | null {
+  const match = raw.trim().match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (!match) return null;
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const dt = new Date(Date.UTC(year, month - 1, day));
+  if (dt.getUTCFullYear() !== year || dt.getUTCMonth() !== month - 1 || dt.getUTCDate() !== day) {
+    return null;
+  }
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function shownConstraint(line: string): string {
+  const splitAt = line.indexOf("：");
+  if (splitAt < 0) return line;
+  return `${formatShownDate(line.slice(0, splitAt))}${line.slice(splitAt)}`;
+}
 
 const EMPTY = {
   title: "",
@@ -158,7 +179,12 @@ export function ActivityWeekRegisterClient() {
     }
   }
 
-  const dateValue = /^\d{4}-\d{2}-\d{2}$/.test(form.dateOrWindow) ? form.dateOrWindow : "";
+  const dateValue = /^\d{4}-\d{2}-\d{2}$/.test(form.dateOrWindow)
+    ? form.dateOrWindow
+    : (singleDmyToIso(form.dateOrWindow) ?? "");
+  const shownDate = /^\d{4}-\d{2}-\d{2}$/.test(form.dateOrWindow)
+    ? formatShownDate(form.dateOrWindow)
+    : form.dateOrWindow;
 
   return (
     <div className="space-y-6">
@@ -241,22 +267,37 @@ export function ActivityWeekRegisterClient() {
             required
           />
         </label>
-        <label className="text-sm">
+        <div className="text-sm">
           <span className="text-[var(--brand-muted)]">擬定日期 *</span>
-          <input
-            className="field mt-1 w-full"
-            type="date"
-            value={dateValue}
-            onChange={(e) => setForm((f) => ({ ...f, dateOrWindow: e.target.value }))}
-          />
-          <input
-            className="field mt-1 w-full"
-            placeholder="或文字：如 1/4–8、2026-01-05"
-            value={form.dateOrWindow}
-            onChange={(e) => setForm((f) => ({ ...f, dateOrWindow: e.target.value }))}
-            required
-          />
-        </label>
+          <span className="relative mt-1 block">
+            <input
+              className="field w-full pr-12"
+              aria-label="擬定日期"
+              inputMode="text"
+              placeholder="例如 16-12-2026，或 16-12-2026至21-12-2026"
+              value={shownDate}
+              onChange={(e) => {
+                const typed = e.target.value;
+                setForm((f) => ({ ...f, dateOrWindow: singleDmyToIso(typed) ?? typed }));
+              }}
+              required
+            />
+            <input
+              className="absolute inset-y-0 right-0 w-11 cursor-pointer opacity-0"
+              type="date"
+              lang="en-GB"
+              aria-label="選擇日期"
+              value={dateValue}
+              onChange={(e) => setForm((f) => ({ ...f, dateOrWindow: e.target.value }))}
+            />
+            <span
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--brand-muted)]"
+              aria-hidden
+            >
+              選擇
+            </span>
+          </span>
+        </div>
         <label className="text-sm">
           <span className="text-[var(--brand-muted)]">活動時長</span>
           <input
@@ -398,7 +439,7 @@ export function ActivityWeekRegisterClient() {
             ) : null}
             {warnings.constraints.map((line) => (
               <p key={line} className="text-amber-900/80">
-                提示：{line}
+                提示：{shownConstraint(line)}
               </p>
             ))}
           </div>
