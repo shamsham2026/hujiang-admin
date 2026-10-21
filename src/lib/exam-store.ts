@@ -1,6 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { get, put } from "@vercel/blob";
+import { BlobNotFoundError, BlobStoreNotFoundError, BlobStoreSuspendedError, get, put } from "@vercel/blob";
 import {
   DRIVE_CURSOR_FOLDER_ID,
   DRIVE_CURSOR_FOLDER_URL,
@@ -57,18 +57,31 @@ async function writeLocalTicks(ticks: ExamTickState): Promise<void> {
   await fs.writeFile(LOCAL_TICKS_PATH, JSON.stringify(ticks, null, 2), "utf8");
 }
 
-async function readBlobPath(pathname: string): Promise<unknown | null> {
-  if (!hasBlob()) return null;
+type BlobRead = { status: "value"; value: unknown } | { status: "missing" } | { status: "unavailable" };
+
+function blobIsMissing(err: unknown): boolean {
+  return err instanceof BlobNotFoundError;
+}
+
+function blobIsUnavailable(err: unknown): boolean {
+  return err instanceof BlobStoreSuspendedError || err instanceof BlobStoreNotFoundError;
+}
+
+/** Missing file is empty storage. A suspended store must not be treated as empty or rewritten. */
+async function readBlobPath(pathname: string): Promise<BlobRead> {
+  if (!hasBlob()) return { status: "missing" };
   try {
     const result = await get(pathname, {
       access: "private",
       useCache: false,
     });
-    if (!result?.stream) return null;
+    if (!result?.stream) return { status: "missing" };
     const text = await new Response(result.stream).text();
-    return JSON.parse(text) as unknown;
-  } catch {
-    return null;
+    return { status: "value", value: JSON.parse(text) as unknown };
+  } catch (err) {
+    if (blobIsMissing(err)) return { status: "missing" };
+    if (blobIsUnavailable(err)) return { status: "unavailable" };
+    throw err;
   }
 }
 
@@ -82,40 +95,40 @@ async function writeBlobTicks(ticks: ExamTickState): Promise<void> {
   });
 }
 
+function rememberTicks(ticks: ExamTickState): ExamTickState {
+  globalThis.__hujiangExamTicks = ticks;
+  return clone(ticks);
+}
+
 async function loadTicks(): Promise<ExamTickState> {
   if (globalThis.__hujiangExamTicks) {
     return clone(globalThis.__hujiangExamTicks);
   }
 
-  const fromBlob = await readBlobPath(BLOB_PATHNAME);
-  if (isTickState(fromBlob)) {
-    globalThis.__hujiangExamTicks = fromBlob;
-    return clone(fromBlob);
-  }
+  if (hasBlob()) {
+    const current = await readBlobPath(BLOB_PATHNAME);
+    if (current.status === "unavailable") return rememberTicks(emptyTickState());
+    if (current.status === "value" && isTickState(current.value)) {
+      return rememberTicks(current.value);
+    }
 
-  const legacyBlob = await readBlobPath(LEGACY_BLOB_PATHNAME);
-  if (isLegacyExamStore(legacyBlob)) {
-    const migrated = ticksFromLegacyStore(legacyBlob);
-    globalThis.__hujiangExamTicks = migrated;
-    await persistTicks(migrated);
-    return clone(migrated);
-  }
-  if (isTickState(legacyBlob)) {
-    globalThis.__hujiangExamTicks = legacyBlob;
-    await persistTicks(legacyBlob);
-    return clone(legacyBlob);
+    const legacy = await readBlobPath(LEGACY_BLOB_PATHNAME);
+    if (legacy.status === "unavailable") return rememberTicks(emptyTickState());
+    if (legacy.status === "value" && isLegacyExamStore(legacy.value)) {
+      return rememberTicks(ticksFromLegacyStore(legacy.value));
+    }
+    if (legacy.status === "value" && isTickState(legacy.value)) {
+      return rememberTicks(legacy.value);
+    }
+    // Opening the page must not create or overwrite blob ticks.
+    return rememberTicks(emptyTickState());
   }
 
   const fromLocal = await readLocalTicks();
-  if (fromLocal) {
-    globalThis.__hujiangExamTicks = fromLocal;
-    return clone(fromLocal);
-  }
+  if (fromLocal) return rememberTicks(fromLocal);
 
-  const fresh = emptyTickState();
-  globalThis.__hujiangExamTicks = fresh;
-  await persistTicks(fresh);
-  return clone(fresh);
+  // Vercel’s deployment filesystem is read-only. Do not write a ticks file just to render the list.
+  return rememberTicks(emptyTickState());
 }
 
 async function getSource() {
@@ -129,10 +142,20 @@ async function persistTicks(ticks: ExamTickState): Promise<void> {
   ticks.updatedAt = new Date().toISOString();
   globalThis.__hujiangExamTicks = clone(ticks);
   if (hasBlob()) {
-    await writeBlobTicks(ticks);
-  } else {
-    await writeLocalTicks(ticks);
+    try {
+      await writeBlobTicks(ticks);
+    } catch (err) {
+      if (blobIsUnavailable(err)) {
+        throw new Error("試卷剔選儲存暫停，清單仍可查看，今次剔選未能寫入。");
+      }
+      throw err;
+    }
+    return;
   }
+  if (process.env.VERCEL) {
+    throw new Error("試卷剔選未設定 Blob，清單仍可查看，今次剔選未能寫入。");
+  }
+  await writeLocalTicks(ticks);
 }
 
 async function withLock<T>(fn: () => Promise<T>): Promise<T> {
