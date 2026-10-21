@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent, type FormEvent } from "react";
 import { ActivityWeekGrid } from "@/components/ActivityWeekGrid";
 import { activitiesForDate, constraintLines } from "@/lib/activity-week-conflicts";
 import { AW_REG_PATH } from "@/lib/activity-week-reg";
+import { revealFocusedField } from "@/lib/reveal-focused-field";
 import {
   activityDays,
   defaultDay,
@@ -47,6 +48,7 @@ export function ActivityWeekClient() {
   const [editing, setEditing] = useState<ActivityEntry | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [dirty, setDirty] = useState(false);
+  const editFormRef = useRef<HTMLFormElement>(null);
 
   const apply = useCallback((data: Payload) => {
     setEntries(data.entries ?? []);
@@ -121,6 +123,17 @@ export function ActivityWeekClient() {
     setDirty(false);
     void load();
   }
+
+  useEffect(() => {
+    if (!editing) return;
+    const frame = window.requestAnimationFrame(() => {
+      const form = editFormRef.current;
+      if (!form) return;
+      form.scrollTop = 0;
+      form.scrollIntoView({ block: "start", inline: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [editing]);
 
   function openEdit(entry: ActivityEntry) {
     setEditing(entry);
@@ -228,7 +241,7 @@ export function ActivityWeekClient() {
         {dayEntries.length === 0 ? (
           <p className="text-lg font-semibold text-[var(--brand-ink)]">該日暫無活動</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-[var(--brand-line)] bg-white">
+          <div className="max-w-full min-w-0 overflow-x-auto rounded-xl border border-[var(--brand-line)] bg-white">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="bg-[var(--brand-soft)] text-[var(--brand-ink)]">
                 <tr>
@@ -382,7 +395,7 @@ export function ActivityWeekClient() {
             重新載入
           </button>
         </div>
-        <div className="overflow-x-auto rounded-xl border border-[var(--brand-line)] bg-white shadow-sm">
+        <div className="max-w-full min-w-0 overflow-x-auto rounded-xl border border-[var(--brand-line)] bg-white shadow-sm">
           <table className="w-full min-w-[860px] text-left text-sm">
             <thead className="bg-[var(--brand-soft)] text-[var(--brand-muted)]">
               <tr>
@@ -456,10 +469,17 @@ export function ActivityWeekClient() {
       </section>
 
       {editing && draft ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
           <form
-            className="section-block max-h-[90vh] w-full max-w-lg space-y-3 overflow-auto bg-white"
+            ref={editFormRef}
+            className="section-block max-h-[90vh] w-full min-w-0 max-w-lg space-y-3 overflow-auto bg-white"
             onSubmit={saveEdit}
+            onFocus={(event: FocusEvent<HTMLFormElement>) => {
+              const target = event.target;
+              if (!(target instanceof HTMLElement) || target === event.currentTarget) return;
+              if (!target.matches("input, textarea, select")) return;
+              revealFocusedField(target);
+            }}
           >
             <h2 className="font-display text-xl font-bold text-[var(--brand-ink)]">
               修訂{editing.builtin ? "內建" : "平台提交"}：{editing.title}

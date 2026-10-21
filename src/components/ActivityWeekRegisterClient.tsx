@@ -1,6 +1,14 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FocusEvent,
+  type FormEvent,
+} from "react";
 import { regWarnings, splitList } from "@/lib/activity-week-conflicts";
 import {
   GRID_ROWS,
@@ -9,6 +17,7 @@ import {
   type TimetableRow,
 } from "@/lib/activity-week-grid";
 import { AW_REG_WINDOW_LINES } from "@/lib/activity-week-reg";
+import { revealFocusedField } from "@/lib/reveal-focused-field";
 import { ACTIVITY_WEEK_SEED } from "@/lib/activity-week-seed";
 import type { ConflictItem } from "@/lib/activity-week-types";
 
@@ -153,7 +162,7 @@ export function ActivityWeekRegisterClient() {
 
   return (
     <div className="space-y-6">
-      <div className="overflow-x-auto rounded-xl border border-[var(--brand-line)] bg-white shadow-sm">
+      <div className="max-w-full min-w-0 overflow-x-auto rounded-xl border border-[var(--brand-line)] bg-white shadow-sm">
         <table className="w-full min-w-[880px] border-collapse text-left text-sm">
           <thead className="bg-[var(--brand-soft)] text-[var(--brand-muted)]">
             <tr>
@@ -207,7 +216,17 @@ export function ActivityWeekRegisterClient() {
           </tbody>
         </table>
       </div>
-    <form className="section-block grid gap-3 sm:grid-cols-2" onSubmit={onSubmit}>
+    <form
+        id="aw-reg-form"
+        className="section-block grid min-w-0 max-w-full gap-3 sm:grid-cols-2"
+        onSubmit={onSubmit}
+        onFocus={(event: FocusEvent<HTMLFormElement>) => {
+          const target = event.target;
+          if (!(target instanceof HTMLElement) || target === event.currentTarget) return;
+          if (!target.matches("input, textarea, select")) return;
+          revealFocusedField(target);
+        }}
+      >
         <div className="space-y-1 text-sm leading-relaxed text-[var(--brand-ink)] sm:col-span-2">
           {AW_REG_WINDOW_LINES.map((line) => (
             <p key={line}>{line}</p>
