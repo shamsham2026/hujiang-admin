@@ -1,33 +1,39 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isPublicPath, safeNextPath } from "@/lib/public-paths";
+import { GATE_COOKIE, tokenMatches } from "@/lib/site-gate";
 
-const GATE_COOKIE = "hj_admin_gate";
-
-function isPublic(pathname: string, method: string): boolean {
-  if (pathname.startsWith("/aw-reg")) return true;
-  if (pathname.startsWith("/api/gate/")) return true;
-  if (pathname === "/api/activity-week/submit") return true;
-  if (pathname === "/api/activity-week/subs" && method === "GET") return true;
-  if (pathname.startsWith("/_next")) return true;
-  if (pathname === "/favicon.ico") return true;
-  if (pathname.startsWith("/brand/")) return true;
-  // Existing admin APIs (試卷等) stay reachable from their pages.
-  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/activity-week/")) {
-    return true;
-  }
-  if (!pathname.startsWith("/api/")) return true;
-  return false;
+function isDocumentNavigation(req: NextRequest): boolean {
+  if (req.headers.get("rsc") === "1") return false;
+  if (req.headers.get("next-router-prefetch") === "1") return false;
+  if (req.headers.get("next-router-segment-prefetch") === "1") return false;
+  const dest = req.headers.get("sec-fetch-dest");
+  if (dest && dest !== "document" && dest !== "empty") return false;
+  return true;
 }
 
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  if (isPublic(pathname, req.method)) return NextResponse.next();
+function privateHeaders(res: NextResponse): NextResponse {
+  res.headers.set("Cache-Control", "private, no-store");
+  res.headers.set("Vary", "Cookie");
+  return res;
+}
 
-  const ok = req.cookies.get(GATE_COOKIE)?.value === "1";
-  if (!ok && pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "未登入" }, { status: 401 });
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  if (isPublicPath(pathname, req.method)) return NextResponse.next();
+
+  const ok = await tokenMatches(req.cookies.get(GATE_COOKIE)?.value);
+  if (ok) return NextResponse.next();
+
+  if (pathname.startsWith("/api/") || !isDocumentNavigation(req)) {
+    return privateHeaders(NextResponse.json({ error: "未登入" }, { status: 401 }));
   }
-  return NextResponse.next();
+
+  const url = req.nextUrl.clone();
+  url.pathname = "/login";
+  url.search = "";
+  url.searchParams.set("next", safeNextPath(`${pathname}${req.nextUrl.search}`));
+  return privateHeaders(NextResponse.redirect(url));
 }
 
 export const config = {

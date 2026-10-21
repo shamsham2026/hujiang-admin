@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthorizedFromRequest } from "@/lib/site-gate";
 import {
   examSourceInfo,
   getExamStore,
@@ -12,7 +13,10 @@ import type { PaperStepKey, ReminderTaskKey } from "@/lib/types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
+  if (!(await isAuthorizedFromRequest(req))) {
+    return NextResponse.json({ error: "未登入" }, { status: 401 });
+  }
   const store = await getExamStore();
   return NextResponse.json({
     store,
@@ -22,6 +26,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  if (!(await isAuthorizedFromRequest(req))) {
+    return NextResponse.json({ error: "未登入" }, { status: 401 });
+  }
   try {
     const body = (await req.json()) as {
       action: string;

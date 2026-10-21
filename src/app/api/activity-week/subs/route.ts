@@ -31,7 +31,7 @@ function publicBody(
 export async function GET(req: Request) {
   const { store, entries, persistence } = await getActivityState();
   const body = publicBody(entries, store.placements);
-  if (!isAuthorizedFromRequest(req)) {
+  if (!(await isAuthorizedFromRequest(req))) {
     return NextResponse.json(body);
   }
   return NextResponse.json({
@@ -44,7 +44,7 @@ export async function GET(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  if (!isAuthorizedFromRequest(req)) {
+  if (!(await isAuthorizedFromRequest(req))) {
     return NextResponse.json({ error: "未登入" }, { status: 401 });
   }
   const id = new URL(req.url).searchParams.get("id") ?? "";
@@ -66,7 +66,7 @@ export async function DELETE(req: Request) {
 }
 
 export async function POST(req: Request) {
-  if (!isAuthorizedFromRequest(req)) {
+  if (!(await isAuthorizedFromRequest(req))) {
     return NextResponse.json({ error: "未登入" }, { status: 401 });
   }
   const body = (await req.json().catch(() => null)) as
