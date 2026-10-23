@@ -26,8 +26,22 @@ function dmyToIso(day: string, month: string, year: string): string | null {
   return `${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+/**
+ * The public calendar shows January, June, and July 2027.
+ * Seed bookings and the admin grid stay on the same month and day in 2026.
+ */
+function seedCalendarIso(iso: string): string {
+  const match = iso.match(/^2027-(01|06|07)-(\d{2})$/);
+  if (!match) return iso;
+  return `2026-${match[1]}-${match[2]}`;
+}
+
 /** Parse 日期／窗口 into ISO dates. Supports the forms already used on the register form. */
 export function parseDateOrWindow(raw: string): string[] {
+  return expandDateOrWindow(raw).map(seedCalendarIso);
+}
+
+function expandDateOrWindow(raw: string): string[] {
   const t = (raw ?? "").trim();
   if (!t) return [];
 
@@ -156,7 +170,7 @@ function datesOf(raw: string): string[] {
   const parsed = parseDateOrWindow(raw);
   if (parsed.length) return parsed;
   const t = raw.trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return [t];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return [seedCalendarIso(t)];
   return [];
 }
 

@@ -7,7 +7,6 @@ import {
   registrationCalendars,
   type RegistrationCalendarMonth,
 } from "@/lib/activity-week-grid";
-import { AW_REG_WINDOW_LINES } from "@/lib/activity-week-reg";
 import { revealFocusedField } from "@/lib/reveal-focused-field";
 import { ACTIVITY_WEEK_SEED } from "@/lib/activity-week-seed";
 import type { ConflictItem } from "@/lib/activity-week-types";
@@ -191,11 +190,6 @@ export function ActivityWeekRegisterClient() {
           revealFocusedField(target);
         }}
       >
-        <div className="space-y-1 text-sm leading-relaxed text-[var(--brand-ink)] sm:col-span-2">
-          {AW_REG_WINDOW_LINES.map((line) => (
-            <p key={line}>{line}</p>
-          ))}
-        </div>
         <label className="text-sm sm:col-span-2">
           <span className="text-[var(--brand-muted)]">活動名稱 *</span>
           <input
@@ -435,7 +429,7 @@ function RegistrationCalendar({
                 className="min-w-0 rounded-xl border border-[var(--brand-line)] bg-white p-2 shadow-sm"
               >
                 <p className="text-[11px] text-[var(--brand-muted)]">
-                  {month.year}年{month.month}月
+                  {`${month.year}年${month.month}月`}
                 </p>
                 <div className="mt-1 grid grid-cols-7 gap-0.5 text-center">
                   {WEEKDAY_HEADS.map((name) => (

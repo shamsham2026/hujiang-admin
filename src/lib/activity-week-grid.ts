@@ -430,12 +430,20 @@ export function registrationCalendarTitle(group: string): string {
   return "上學期期考後活動週";
 }
 
+/** Public calendar year. December stays 2026; January, June, and July are 2027. */
+function registrationDisplayIso(iso: string): string {
+  const match = iso.match(/^2026-(01|06|07)-(\d{2})$/);
+  if (!match) return iso;
+  return `2027-${match[1]}-${match[2]}`;
+}
+
 /** Schedulable registration dates only, December post-exam months first. */
 export function registrationCalendars(): RegistrationCalendarMonth[] {
   const months: RegistrationCalendarMonth[] = [];
   const weeks = new Map<string, (RegistrationCalendarDay | null)[]>();
   for (const row of registrationBlankRows()) {
-    const [year, month, day] = row.date.split("-").map(Number);
+    const shown = registrationDisplayIso(row.date);
+    const [year, month, day] = shown.split("-").map(Number);
     const title = registrationCalendarTitle(row.group);
     let bucket = months.find(
       (item) => item.group === title && item.year === year && item.month === month,
@@ -452,7 +460,7 @@ export function registrationCalendars(): RegistrationCalendarMonth[] {
       weeks.set(key, week);
       bucket.weeks.push(week);
     }
-    week[weekday] = { date: row.date, label: row.label };
+    week[weekday] = { date: shown, label: formatRegistrationDate(shown) };
   }
   return months;
 }

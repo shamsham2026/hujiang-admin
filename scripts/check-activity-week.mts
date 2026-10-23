@@ -36,7 +36,11 @@ assert.deepEqual(parseDateOrWindow("16-12-2026至21-12-2026"), [
   "2026-12-20",
   "2026-12-21",
 ]);
-assert.deepEqual(parseDateOrWindow("4-1-2027"), ["2027-01-04"]);
+assert.deepEqual(parseDateOrWindow("4-1-2027"), ["2026-01-04"]);
+assert.deepEqual(parseDateOrWindow("16-6-2027"), ["2026-06-16"]);
+assert.deepEqual(parseDateOrWindow("2-7-2027"), ["2026-07-02"]);
+assert.deepEqual(parseDateOrWindow("2027-01-04/2027-01-08"), jan);
+assert.deepEqual(parseDateOrWindow("16-12-2027"), ["2027-12-16"]);
 assert.ok(parseDateOrWindow("6/16–7/8").includes("2026-06-16"));
 assert.ok(parseDateOrWindow("6/16–7/8").includes("2026-07-08"));
 assert.ok(!parseDateOrWindow("6/16–7/8").includes("2026-07-09"));
@@ -235,6 +239,28 @@ assert.equal(court.hallFull, false);
 assert.deepEqual(court.constraints, []);
 const gas = regWarnings("2026-01-05", known, "408");
 assert.ok(gas.conflicts.some((line) => line.includes("煤氣")));
+const gasNextYear = regWarnings("2027-01-05", known, "408");
+assert.ok(gasNextYear.conflicts.some((line) => line.includes("煤氣")));
+const gradNextYear = regWarnings("2027-07-02", known, "禮堂", "第3節");
+assert.equal(gradNextYear.hallFull, true);
+assert.ok(gradNextYear.conflicts.some((line) => line.includes("畢業禮")));
+const peerNextYear = regWarnings(
+  "4-1-2027",
+  [
+    ...known,
+    {
+      id: "sub-2027",
+      title: "英文週",
+      dateOrWindow: "2027-01-04",
+      periods: ["第1節"],
+      venue: "408室",
+      hold: false,
+    },
+  ],
+  "408",
+  "第1節",
+);
+assert.ok(peerNextYear.conflicts.some((line) => line.includes("英文週")));
 assert.equal(gas.hallFull, false);
 const janHall = regWarnings("2026-01-05", known, "禮堂", "第1節");
 assert.deepEqual(janHall.conflicts, []);
@@ -322,9 +348,9 @@ assert.deepEqual(
   calendars.map((month) => `${month.group}:${month.year}-${String(month.month).padStart(2, "0")}`),
   [
     "上學期期考後活動週:2026-12",
-    "上學期期考後活動週:2026-01",
-    "下學期期考後活動週:2026-06",
-    "下學期期考後活動週:2026-07",
+    "上學期期考後活動週:2027-01",
+    "下學期期考後活動週:2027-06",
+    "下學期期考後活動週:2027-07",
   ],
 );
 assert.deepEqual(
@@ -336,14 +362,26 @@ const listed = calendars.flatMap((month) =>
 );
 assert.deepEqual(
   listed,
-  registrationBlank.map((row) => row.date),
+  registrationBlank.map((row) => row.date.replace(/^2026-(01|06|07)-/, "2027-$1-")),
 );
 assert.ok(calendars.every((month) => month.weeks.every((week) => week.length === 7)));
 const december16 = calendars[0]?.weeks
   .flatMap((week) => week.map((day, index) => (day?.date === "2026-12-16" ? index : -1)))
   .find((index) => index >= 0);
 assert.equal(december16, 3);
-for (const blocked of ["2026-12-15", "2026-12-19", "2026-06-14", "2026-07-09", "2026-01-03"]) {
+const january4 = calendars[1]?.weeks
+  .flatMap((week) => week.map((day, index) => (day?.date === "2027-01-04" ? index : -1)))
+  .find((index) => index >= 0);
+assert.equal(january4, 1);
+assert.equal(
+  calendars[1]?.weeks.flat().find((day) => day?.date === "2027-01-04")?.label,
+  "4-1-2027 週一",
+);
+assert.deepEqual(
+  calendars[1]?.weeks.flatMap((week) => week.flatMap((day) => (day ? [Number(day.date.slice(8))] : []))),
+  [4, 5, 6, 7, 8],
+);
+for (const blocked of ["2026-12-15", "2026-12-19", "2027-06-14", "2027-07-09", "2027-01-03"]) {
   assert.equal(listed.includes(blocked), false, blocked);
 }
 
