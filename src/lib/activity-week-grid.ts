@@ -437,13 +437,30 @@ function registrationDisplayIso(iso: string): string {
   return `2027-${match[1]}-${match[2]}`;
 }
 
+/**
+ * Second-term days on the public calendar. The seed window is weekdays in 2026;
+ * the form shows that same window in 2027, so Saturday and Sunday are dropped
+ * again on the displayed dates. 7/9 stays outside the window.
+ */
+function secondTermRegistrationDates(): string[] {
+  const window = ACTIVITY_WEEK_SEED.windows.下學期活動週;
+  return isoRange(registrationDisplayIso(window.start), registrationDisplayIso(window.end), true);
+}
+
 /** Schedulable registration dates only, December post-exam months first. */
 export function registrationCalendars(): RegistrationCalendarMonth[] {
   const months: RegistrationCalendarMonth[] = [];
   const weeks = new Map<string, (RegistrationCalendarDay | null)[]>();
-  for (const row of registrationBlankRows()) {
-    const shown = registrationDisplayIso(row.date);
+  const rows = [
+    ...registrationBlankRows()
+      .filter((row) => row.group !== "下學期活動週")
+      .map((row) => ({ date: registrationDisplayIso(row.date), group: row.group })),
+    ...secondTermRegistrationDates().map((date) => ({ date, group: "下學期活動週" })),
+  ];
+  for (const row of rows) {
+    const shown = row.date;
     const [year, month, day] = shown.split("-").map(Number);
+    const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
     const title = registrationCalendarTitle(row.group);
     let bucket = months.find(
       (item) => item.group === title && item.year === year && item.month === month,
@@ -452,7 +469,6 @@ export function registrationCalendars(): RegistrationCalendarMonth[] {
       bucket = { group: title, year, month, weeks: [] };
       months.push(bucket);
     }
-    const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
     const key = `${row.group}|${year}-${month}|${day - weekday}`;
     let week = weeks.get(key);
     if (!week) {

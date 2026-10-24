@@ -360,9 +360,38 @@ assert.deepEqual(
 const listed = calendars.flatMap((month) =>
   month.weeks.flatMap((week) => week.flatMap((day) => (day ? [day.date] : []))),
 );
+const schoolDay = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return weekday >= 1 && weekday <= 5;
+};
+const secondTerm = listed.filter((iso) => iso.startsWith("2027-06") || iso.startsWith("2027-07"));
+assert.ok(secondTerm.every(schoolDay));
 assert.deepEqual(
-  listed,
-  registrationBlank.map((row) => row.date.replace(/^2026-(01|06|07)-/, "2027-$1-")),
+  listed.filter((iso) => !iso.startsWith("2027-06") && !iso.startsWith("2027-07")),
+  registrationBlank
+    .filter((row) => row.group !== "下學期活動週")
+    .map((row) => row.date.replace(/^2026-01-/, "2027-01-")),
+);
+assert.deepEqual(
+  secondTerm.filter((iso) => iso.startsWith("2027-06")),
+  [
+    "2027-06-16",
+    "2027-06-17",
+    "2027-06-18",
+    "2027-06-21",
+    "2027-06-22",
+    "2027-06-23",
+    "2027-06-24",
+    "2027-06-25",
+    "2027-06-28",
+    "2027-06-29",
+    "2027-06-30",
+  ],
+);
+assert.deepEqual(
+  secondTerm.filter((iso) => iso.startsWith("2027-07")),
+  ["2027-07-01", "2027-07-02", "2027-07-05", "2027-07-06", "2027-07-07", "2027-07-08"],
 );
 assert.ok(calendars.every((month) => month.weeks.every((week) => week.length === 7)));
 const december16 = calendars[0]?.weeks
@@ -381,7 +410,16 @@ assert.deepEqual(
   calendars[1]?.weeks.flatMap((week) => week.flatMap((day) => (day ? [Number(day.date.slice(8))] : []))),
   [4, 5, 6, 7, 8],
 );
-for (const blocked of ["2026-12-15", "2026-12-19", "2027-06-14", "2027-07-09", "2027-01-03"]) {
+for (const blocked of [
+  "2026-12-15",
+  "2026-12-19",
+  "2027-06-14",
+  "2027-06-19",
+  "2027-06-26",
+  "2027-07-03",
+  "2027-07-09",
+  "2027-01-03",
+]) {
   assert.equal(listed.includes(blocked), false, blocked);
 }
 
