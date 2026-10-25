@@ -108,8 +108,10 @@ async function persist(store: StoreShape): Promise<void> {
     } catch (err) {
       const status = (err as { status?: number }).status;
       if (status !== 409) throw new Error(friendlyGitHubError(err));
-      const fresh = await readGithub();
-      globalThis.__hujiangAwSha = await writeGithub(store, fresh?.sha ?? null);
+      // 撞到 409 代表有人喺我哋讀取之後改咗個檔。
+      // 直接交返俾 mutate()：佢會重讀最新版本再重新套用同一個改動，
+      // 確保唔會蓋咗公開登記站啱啱收到嘅登記。
+      throw err;
     }
   } else if (process.env.VERCEL) {
     throw new Error("GitHub store 未設定（GITHUB_STORE_TOKEN）");
@@ -148,15 +150,17 @@ async function ensureSeeded(store: StoreShape): Promise<StoreShape> {
 }
 
 async function load(): Promise<StoreShape> {
-  if (globalThis.__hujiangAwSubs) {
-    return ensureSeeded(clone(globalThis.__hujiangAwSubs));
-  }
   if (githubStoreEnabled()) {
+    // 每次都讀返 GitHub 最新版本：公開登記站（另一個 project）都會寫
+    // 同一個檔，用記憶體快取會睇唔到同事啱啱提交嘅登記。
     const fromGithub = await readGithub();
     const store = fromGithub?.store ?? emptyStore();
     globalThis.__hujiangAwSha = fromGithub?.sha ?? null;
     globalThis.__hujiangAwSubs = store;
     return ensureSeeded(clone(store));
+  }
+  if (globalThis.__hujiangAwSubs) {
+    return ensureSeeded(clone(globalThis.__hujiangAwSubs));
   }
   const fromLocal = await readLocal();
   if (fromLocal) {
@@ -166,6 +170,44 @@ async function load(): Promise<StoreShape> {
   const fresh = emptyStore();
   globalThis.__hujiangAwSubs = fresh;
   return ensureSeeded(clone(fresh));
+}
+
+/**
+ * 改資料嘅統一入口：每次都重讀最新版本，套用改動，再寫返。
+ *
+ * 公開登記站（sap-activity-week）同平台都寫同一個 GitHub store 檔，
+ * 所以平台唔可以攞住一份舊 snapshot 就成份寫返去，
+ * 否則會蓋咗同事啱啱登記嘅內容。
+ *
+ * 如果寫入時撞到人改（409），就重讀最新版本再重新套用同一次改動。
+ */
+async function mutate<T>(
+  apply: (store: StoreShape) => T | Promise<T>,
+): Promise<T> {
+  if (!githubStoreEnabled()) {
+    const store = await load();
+    const result = await apply(store);
+    await persist(store);
+    return result;
+  }
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    // 每次都重讀，確保改動係基於最新版本。
+    const store = await load();
+    const result = await apply(store);
+    try {
+      await persist(store);
+      return result;
+    } catch (err) {
+      lastError = err;
+      const status = (err as { status?: number }).status;
+      if (status !== 409) throw err;
+      // 有其他人喺我哋寫入之前改咗個檔：下一輪重讀再套用同一個改動。
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("GitHub store 寫入衝突，請稍後再試");
 }
 
 export function persistenceMode(): "github" | "local-json" {
@@ -300,21 +342,22 @@ export async function addSubmission(input: EditablePatch & { submitterName?: str
       submittedAt: new Date().toISOString(),
       submitterName: input.submitterName?.trim() || undefined,
     };
-    store.submissions.unshift(submission);
-    await persist(store);
-    return submission;
+    return mutate((store) => {
+      store.submissions.unshift(submission);
+      return submission;
+    });
   });
 }
 
 export async function deleteSubmission(id: string) {
   return withLock(async () => {
-    const store = await load();
-    const before = store.submissions.length;
-    store.submissions = store.submissions.filter((s) => s.id !== id);
-    if (store.submissions.length === before) throw new Error("找不到呢項平台提交");
-    store.placements = store.placements.filter((p) => p.entryId !== id);
-    await persist(store);
-    return mergeEntries(store);
+    return mutate((store) => {
+      const before = store.submissions.length;
+      store.submissions = store.submissions.filter((s) => s.id !== id);
+      if (store.submissions.length === before) throw new Error("找不到呢項平台提交");
+      store.placements = store.placements.filter((p) => p.entryId !== id);
+      return mergeEntries(store);
+    });
   });
 }
 
@@ -326,10 +369,10 @@ export async function reviseBuiltin(id: string, patch: EditablePatch) {
   if (!title) throw new Error("請填活動名稱");
   if (!dateOrWindow) throw new Error("請填日期");
   return withLock(async () => {
-    const store = await load();
-    store.revisions[id] = revisionFrom(seed, { ...patch, title, dateOrWindow });
-    await persist(store);
-    return mergeEntries(store);
+    return mutate((store) => {
+      store.revisions[id] = revisionFrom(seed, { ...patch, title, dateOrWindow });
+      return mergeEntries(store);
+    });
   });
 }
 
@@ -338,35 +381,35 @@ export async function restoreBuiltin(id: string) {
     throw new Error("呢項唔係內建活動");
   }
   return withLock(async () => {
-    const store = await load();
-    delete store.revisions[id];
-    await persist(store);
-    return mergeEntries(store);
+    return mutate((store) => {
+      delete store.revisions[id];
+      return mergeEntries(store);
+    });
   });
 }
 
 export async function updateSubmission(id: string, patch: EditablePatch) {
   return withLock(async () => {
-    const store = await load();
-    const sub = store.submissions.find((s) => s.id === id);
-    if (!sub) throw new Error("找不到呢項平台提交");
-    const title = (patch.title ?? sub.title).trim();
-    const dateOrWindow = (patch.dateOrWindow ?? sub.dateOrWindow).trim();
-    const owner = (patch.owner ?? sub.owner).trim();
-    if (!title) throw new Error("請填活動名稱");
-    if (!dateOrWindow) throw new Error("請填日期");
-    if (!owner) throw new Error("請填負責老師");
-    sub.title = title;
-    sub.dateOrWindow = dateOrWindow;
-    sub.periods = asPeriods(patch.periods, sub.periods);
-    sub.venue = (patch.venue ?? sub.venue).trim();
-    sub.audience = (patch.audience ?? sub.audience).trim();
-    sub.owner = owner;
-    sub.hold = patch.hold ?? sub.hold;
-    sub.notes = (patch.notes ?? sub.notes).trim();
-    sub.track = (patch.track ?? sub.track ?? "").trim() || undefined;
-    await persist(store);
-    return mergeEntries(store);
+    return mutate((store) => {
+      const sub = store.submissions.find((s) => s.id === id);
+      if (!sub) throw new Error("找不到呢項平台提交");
+      const title = (patch.title ?? sub.title).trim();
+      const dateOrWindow = (patch.dateOrWindow ?? sub.dateOrWindow).trim();
+      const owner = (patch.owner ?? sub.owner).trim();
+      if (!title) throw new Error("請填活動名稱");
+      if (!dateOrWindow) throw new Error("請填日期");
+      if (!owner) throw new Error("請填負責老師");
+      sub.title = title;
+      sub.dateOrWindow = dateOrWindow;
+      sub.periods = asPeriods(patch.periods, sub.periods);
+      sub.venue = (patch.venue ?? sub.venue).trim();
+      sub.audience = (patch.audience ?? sub.audience).trim();
+      sub.owner = owner;
+      sub.hold = patch.hold ?? sub.hold;
+      sub.notes = (patch.notes ?? sub.notes).trim();
+      sub.track = (patch.track ?? sub.track ?? "").trim() || undefined;
+      return mergeEntries(store);
+    });
   });
 }
 
@@ -375,29 +418,29 @@ export async function placeEntry(entryId: string, date: string, classCode: strin
   if (!isClassCode(classCode)) throw new Error("班別唔啱");
   if (!isTeachingPeriod(period)) throw new Error("只可以排入正課節");
   return withLock(async () => {
-    const store = await load();
-    const known = mergeEntries(store).some((e) => e.id === entryId);
-    if (!known) throw new Error("找不到呢個活動");
-    const exists = store.placements.some(
-      (p) =>
-        p.entryId === entryId &&
-        p.date === date &&
-        p.classCode === classCode &&
-        p.period === period,
-    );
-    if (!exists) {
-      const placement: ActivityPlacement = {
-        id: uid("plc"),
-        entryId,
-        date,
-        classCode,
-        period,
-        updatedAt: new Date().toISOString(),
-      };
-      store.placements.push(placement);
-      await persist(store);
-    }
-    return store.placements;
+    return mutate((store) => {
+      const known = mergeEntries(store).some((e) => e.id === entryId);
+      if (!known) throw new Error("找不到呢個活動");
+      const exists = store.placements.some(
+        (p) =>
+          p.entryId === entryId &&
+          p.date === date &&
+          p.classCode === classCode &&
+          p.period === period,
+      );
+      if (!exists) {
+        const placement: ActivityPlacement = {
+          id: uid("plc"),
+          entryId,
+          date,
+          classCode,
+          period,
+          updatedAt: new Date().toISOString(),
+        };
+        store.placements.push(placement);
+      }
+      return store.placements;
+    });
   });
 }
 
@@ -408,42 +451,40 @@ export async function placeMany(
 ) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("日期格式唔啱");
   return withLock(async () => {
-    const store = await load();
-    const known = mergeEntries(store).some((e) => e.id === entryId);
-    if (!known) throw new Error("找不到呢個活動");
-    let changed = false;
-    for (const cell of cells) {
-      if (!isClassCode(cell.classCode) || !isTeachingPeriod(cell.period)) continue;
-      const exists = store.placements.some(
-        (p) =>
-          p.entryId === entryId &&
-          p.date === date &&
-          p.classCode === cell.classCode &&
-          p.period === cell.period,
-      );
-      if (exists) continue;
-      store.placements.push({
-        id: uid("plc"),
-        entryId,
-        date,
-        classCode: cell.classCode,
-        period: cell.period,
-        updatedAt: new Date().toISOString(),
-      });
-      changed = true;
-    }
-    if (changed) await persist(store);
-    return store.placements;
+    return mutate((store) => {
+      const known = mergeEntries(store).some((e) => e.id === entryId);
+      if (!known) throw new Error("找不到呢個活動");
+      for (const cell of cells) {
+        if (!isClassCode(cell.classCode) || !isTeachingPeriod(cell.period)) continue;
+        const exists = store.placements.some(
+          (p) =>
+            p.entryId === entryId &&
+            p.date === date &&
+            p.classCode === cell.classCode &&
+            p.period === cell.period,
+        );
+        if (exists) continue;
+        store.placements.push({
+          id: uid("plc"),
+          entryId,
+          date,
+          classCode: cell.classCode,
+          period: cell.period,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+      return store.placements;
+    });
   });
 }
 
 export async function unplace(id: string) {
   return withLock(async () => {
-    const store = await load();
-    const before = store.placements.length;
-    store.placements = store.placements.filter((p) => p.id !== id);
-    if (store.placements.length === before) throw new Error("找不到呢格");
-    await persist(store);
-    return store.placements;
+    return mutate((store) => {
+      const before = store.placements.length;
+      store.placements = store.placements.filter((p) => p.id !== id);
+      if (store.placements.length === before) throw new Error("找不到呢格");
+      return store.placements;
+    });
   });
 }
