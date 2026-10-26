@@ -68,9 +68,6 @@ export function AppShell({
         />
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
-      <footer className="border-t border-[var(--brand-line)] py-6 text-center text-xs text-[var(--brand-muted)]">
-        滬江小學行政管理平台 · 學年範本可沿用 · 與調課／代課系統互通
-      </footer>
     </div>
   );
 }
