@@ -58,6 +58,7 @@ const EMPTY = {
   headcountOnly: false,
   headcount: "",
   owner: "",
+  subjectTeachers: "",
   hold: false,
   notes: "",
   submitterName: "",
@@ -145,6 +146,7 @@ export function ActivityWeekRegisterClient() {
           venue: form.venue.trim(),
           audience,
           owner: form.owner.trim(),
+          subjectTeachers: form.subjectTeachers.trim(),
           hold: form.hold,
           notes: form.notes.trim(),
           submitterName: form.submitterName.trim() || undefined,
@@ -334,6 +336,14 @@ export function ActivityWeekRegisterClient() {
             value={form.owner}
             onChange={(e) => setForm((f) => ({ ...f, owner: e.target.value }))}
             required
+          />
+        </label>
+        <label className="text-sm sm:col-span-2">
+          <span className="text-[var(--brand-muted)]">科任老師（如需指定）</span>
+          <input
+            className="field mt-1 w-full"
+            value={form.subjectTeachers}
+            onChange={(e) => setForm((f) => ({ ...f, subjectTeachers: e.target.value }))}
           />
         </label>
         <label className="text-sm sm:col-span-2">

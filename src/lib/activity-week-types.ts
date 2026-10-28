@@ -9,6 +9,8 @@ export type ActivityRevision = {
   venue: string;
   audience: string;
   owner: string;
+  /** PDF 表格「科任、活動時長」入面嘅科任老師。 */
+  subjectTeachers: string;
   hold: boolean;
   notes: string;
   track: string;
@@ -23,6 +25,8 @@ export type ActivitySubmission = {
   venue: string;
   audience: string;
   owner: string;
+  /** PDF 表格「科任、活動時長」入面嘅科任老師。 */
+  subjectTeachers: string;
   hold: boolean;
   notes: string;
   track?: string;
@@ -47,6 +51,8 @@ export type ActivityEntry = {
   venue: string;
   audience: string;
   owner: string;
+  /** PDF 表格「科任、活動時長」入面嘅科任老師。 */
+  subjectTeachers: string;
   hold: boolean;
   notes: string;
   track: string;

@@ -122,6 +122,7 @@ const hallA: ActivityEntry = {
   venue: "禮堂",
   audience: "小一",
   owner: "",
+  subjectTeachers: "",
   hold: true,
   notes: "",
   track: "",

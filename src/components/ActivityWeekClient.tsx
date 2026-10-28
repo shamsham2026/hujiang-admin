@@ -22,6 +22,7 @@ type Draft = {
   venue: string;
   audience: string;
   owner: string;
+  subjectTeachers: string;
   hold: boolean;
   notes: string;
   track: string;
@@ -144,6 +145,7 @@ export function ActivityWeekClient() {
       venue: entry.venue,
       audience: entry.audience,
       owner: entry.owner,
+      subjectTeachers: entry.subjectTeachers,
       hold: entry.hold,
       notes: entry.notes,
       track: entry.track,
@@ -242,10 +244,10 @@ export function ActivityWeekClient() {
           <p className="text-lg font-semibold text-[var(--brand-ink)]">該日暫無活動</p>
         ) : (
           <div className="max-w-full min-w-0 overflow-x-auto rounded-xl border border-[var(--brand-line)] bg-white">
-            <table className="w-full min-w-[640px] text-left text-sm">
+            <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="bg-[var(--brand-soft)] text-[var(--brand-ink)]">
                 <tr>
-                  {["活動", "節", "場地", "對象", "負責", "Hold"].map((label) => (
+                  {["活動", "節", "場地", "對象", "負責", "科任", "Hold"].map((label) => (
                     <th key={label} className="px-3 py-2">
                       {label}
                     </th>
@@ -260,6 +262,7 @@ export function ActivityWeekClient() {
                     <td className="px-3 py-2">{entry.venue || "—"}</td>
                     <td className="px-3 py-2">{entry.audience || "—"}</td>
                     <td className="px-3 py-2">{entry.owner || "—"}</td>
+                    <td className="px-3 py-2">{entry.subjectTeachers || "—"}</td>
                     <td className="px-3 py-2">{entry.hold ? "是" : "—"}</td>
                   </tr>
                 ))}
@@ -396,10 +399,10 @@ export function ActivityWeekClient() {
           </button>
         </div>
         <div className="max-w-full min-w-0 overflow-x-auto rounded-xl border border-[var(--brand-line)] bg-white shadow-sm">
-          <table className="w-full min-w-[860px] text-left text-sm">
+          <table className="w-full min-w-[960px] text-left text-sm">
             <thead className="bg-[var(--brand-soft)] text-[var(--brand-muted)]">
               <tr>
-                {["來源", "日期／窗口", "活動", "對象", "場地", "節", "負責", "Hold", "備註", ""].map(
+                {["來源", "日期／窗口", "活動", "對象", "場地", "節", "負責", "科任", "Hold", "備註", ""].map(
                   (label) => (
                     <th key={label || "act"} className="px-3 py-2">
                       {label}
@@ -430,6 +433,7 @@ export function ActivityWeekClient() {
                   <td className="px-3 py-2">{entry.venue || "—"}</td>
                   <td className="px-3 py-2">{entry.periods.length ? entry.periods.join("、") : "—"}</td>
                   <td className="px-3 py-2">{entry.owner || "—"}</td>
+                  <td className="px-3 py-2">{entry.subjectTeachers || "—"}</td>
                   <td className="px-3 py-2">{entry.hold ? "是" : "—"}</td>
                   <td className="px-3 py-2 text-[var(--brand-muted)]">{entry.notes || "—"}</td>
                   <td className="px-3 py-2">
@@ -502,6 +506,11 @@ export function ActivityWeekClient() {
               onChange={(periods) => patchDraft(setDraft, setDirty, { periods })}
             />
             <Field label="負責" value={draft.owner} onChange={(owner) => patchDraft(setDraft, setDirty, { owner })} />
+            <Field
+              label="科任老師"
+              value={draft.subjectTeachers}
+              onChange={(subjectTeachers) => patchDraft(setDraft, setDirty, { subjectTeachers })}
+            />
             <Field label="軌／窗口" value={draft.track} onChange={(track) => patchDraft(setDraft, setDirty, { track })} />
             <label className="flex items-center gap-2 text-sm">
               <input
