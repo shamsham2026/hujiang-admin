@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FocusEvent, type FormEvent } from "react";
-import { regWarnings, splitList } from "@/lib/activity-week-conflicts";
+import { regWarnings } from "@/lib/activity-week-conflicts";
 import {
   formatShownDate,
   registrationCalendars,
@@ -13,12 +13,15 @@ import { revealFocusedField } from "@/lib/reveal-focused-field";
 import { ACTIVITY_WEEK_SEED } from "@/lib/activity-week-seed";
 import type { ConflictItem } from "@/lib/activity-week-types";
 
+/** 活動時長選項：分鐘、課節、全日。小息唔算活動時段，唔列入。 */
 const DURATION_OPTS = [
   "30分鐘",
   "45分鐘",
   "60分鐘",
   "90分鐘",
-  ...ACTIVITY_WEEK_SEED.periods.map((p) => p.name),
+  ...ACTIVITY_WEEK_SEED.periods
+    .map((p) => p.name)
+    .filter((name) => !name.includes("小息")),
   "全日",
   "頭三節",
 ];
@@ -37,9 +40,9 @@ function shownConstraint(line: string): string {
 }
 
 const EMPTY = {
-  title: "",
+    title: "",
   dates: [] as string[],
-  periods: "",
+  periods: [] as string[],
   venue: "",
   junior: false,
   senior: false,
@@ -134,7 +137,7 @@ export function ActivityWeekRegisterClient() {
         body: JSON.stringify({
           title: form.title.trim(),
           dateOrWindow: form.dates.join("、"),
-          periods: splitList(form.periods),
+          periods: form.periods,
           venue: form.venue.trim(),
           audience,
           owner: form.owner.trim(),
@@ -211,21 +214,39 @@ export function ActivityWeekRegisterClient() {
               : "（未揀日期）"}
           </p>
         </div>
-        <label className="text-sm">
-          <span className="text-[var(--brand-muted)]">活動時長</span>
-          <input
-            className="field mt-1 w-full"
-            list="aw-reg-duration-opts"
-            placeholder="例如 45分鐘、第1節、第2節 或 全日"
-            value={form.periods}
-            onChange={(e) => setForm((f) => ({ ...f, periods: e.target.value }))}
-          />
-          <datalist id="aw-reg-duration-opts">
-            {DURATION_OPTS.map((opt) => (
-              <option key={opt} value={opt} />
-            ))}
-          </datalist>
-        </label>
+        <fieldset className="text-sm">
+          <legend className="text-[var(--brand-muted)]">活動時長（可揀多項，剔中格仔）</legend>
+          <div className="mt-1 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+            {DURATION_OPTS.map((opt) => {
+              const checked = form.periods.includes(opt);
+              return (
+                <label
+                  key={opt}
+                  className={`flex cursor-pointer items-center gap-1.5 rounded border px-2 py-1 text-xs ${
+                    checked
+                      ? "border-[var(--brand-accent)] bg-[var(--brand-accent)] text-white"
+                      : "border-[var(--brand-line)] bg-white text-[var(--brand-ink)]"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 shrink-0 accent-[var(--brand-accent)]"
+                    checked={checked}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        periods: e.target.checked
+                          ? [...f.periods, opt]
+                          : f.periods.filter((p) => p !== opt),
+                      }))
+                    }
+                  />
+                  <span>{opt}</span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
         <label className="text-sm">
           <span className="text-[var(--brand-muted)]">場地</span>
           <input

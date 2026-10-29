@@ -348,15 +348,15 @@ const calendars = registrationCalendars();
 assert.deepEqual(
   calendars.map((month) => `${month.group}:${month.year}-${String(month.month).padStart(2, "0")}`),
   [
-    "上學期期考後活動週:2026-12",
-    "上學期期考後活動週:2027-01",
-    "下學期期考後活動週:2027-06",
-    "下學期期考後活動週:2027-07",
+    "上學期期考後活動安排:2026-12",
+    "上學期期考後活動安排:2027-01",
+    "下學期期考後活動安排:2027-06",
+    "下學期期考後活動安排:2027-07",
   ],
 );
 assert.deepEqual(
   [...new Set(calendars.map((month) => month.group))],
-  ["上學期期考後活動週", "下學期期考後活動週"],
+  ["上學期期考後活動安排", "下學期期考後活動安排"],
 );
 const listed = calendars.flatMap((month) =>
   month.weeks.flatMap((week) => week.flatMap((day) => (day ? [day.date] : []))),
