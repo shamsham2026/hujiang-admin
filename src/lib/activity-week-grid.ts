@@ -90,6 +90,9 @@ export function formatRegistrationDate(iso: string): string {
 /** Show a stored ISO or compact window as 日-月-年. Other text is unchanged. */
 export function formatShownDate(raw: string): string {
   const text = raw.trim();
+  // 多個日子用「、」分隔，逐個格式化。
+  const parts = text.split(/[、,，]/).map((part) => part.trim()).filter(Boolean);
+  if (parts.length > 1) return parts.map((part) => formatShownDate(part)).join("、");
   const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (iso) return `${Number(iso[3])}-${Number(iso[2])}-${iso[1]}`;
   const compact = text.match(/^(\d{4})-(\d{2})-(\d{2})\/(\d{1,2})$/);
@@ -479,6 +482,29 @@ export function registrationCalendars(): RegistrationCalendarMonth[] {
     week[weekday] = { date: shown, label: formatRegistrationDate(shown) };
   }
   return months;
+}
+
+export type RegistrationDateOption = {
+  group: string;
+  date: string;
+  label: string;
+};
+
+/**
+ * 可供同事點選嘅登記日期，跟公開月曆同一批日子。
+ * 期考後係 2026-12，上學期／下學期活動週係 2027 年。
+ */
+export function registrationDateOptions(): RegistrationDateOption[] {
+  const out: RegistrationDateOption[] = [];
+  for (const month of registrationCalendars()) {
+    for (const week of month.weeks) {
+      for (const day of week) {
+        if (!day) continue;
+        out.push({ group: month.group, date: day.date, label: day.label });
+      }
+    }
+  }
+  return out;
 }
 
 export function isClassCode(value: string): boolean {

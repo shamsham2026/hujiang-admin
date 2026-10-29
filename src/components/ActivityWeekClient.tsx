@@ -9,6 +9,7 @@ import {
   activityDays,
   defaultDay,
   formatDayLabel,
+  formatShownDate,
   suggestPlacements,
 } from "@/lib/activity-week-grid";
 import { CANDIDATES, P1_THEATRE_NOTE } from "@/lib/activity-week-planning";
@@ -423,7 +424,7 @@ export function ActivityWeekClient() {
                     {entry.submitterName ? <span className="mt-0.5 block">{entry.submitterName}</span> : null}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2">
-                    {entry.dateOrWindow || "—"}
+                    {entry.dateOrWindow ? formatShownDate(entry.dateOrWindow) : "—"}
                     {entry.track ? (
                       <span className="mt-0.5 block text-xs text-[var(--brand-muted)]">{entry.track}</span>
                     ) : null}

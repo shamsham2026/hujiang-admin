@@ -5,7 +5,9 @@ import { regWarnings, splitList } from "@/lib/activity-week-conflicts";
 import {
   formatShownDate,
   registrationCalendars,
+  registrationDateOptions,
   type RegistrationCalendarMonth,
+  type RegistrationDateOption,
 } from "@/lib/activity-week-grid";
 import { revealFocusedField } from "@/lib/reveal-focused-field";
 import { ACTIVITY_WEEK_SEED } from "@/lib/activity-week-seed";
@@ -28,20 +30,6 @@ const VENUE_OPTS = ACTIVITY_WEEK_SEED.venues.map((v) =>
 const WEEKDAY_HEADS = ["日", "一", "二", "三", "四", "五", "六"] as const;
 const REGISTRATION_CALENDARS: RegistrationCalendarMonth[] = registrationCalendars();
 
-function singleDmyToIso(raw: string): string | null {
-  const match = raw.trim().match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
-  if (!match) return null;
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = Number(match[3]);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  const dt = new Date(Date.UTC(year, month - 1, day));
-  if (dt.getUTCFullYear() !== year || dt.getUTCMonth() !== month - 1 || dt.getUTCDate() !== day) {
-    return null;
-  }
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
-
 function shownConstraint(line: string): string {
   const splitAt = line.indexOf("：");
   if (splitAt < 0) return line;
@@ -50,7 +38,7 @@ function shownConstraint(line: string): string {
 
 const EMPTY = {
   title: "",
-  dateOrWindow: "",
+  dates: [] as string[],
   periods: "",
   venue: "",
   junior: false,
@@ -109,8 +97,8 @@ export function ActivityWeekRegisterClient() {
   }, [load]);
 
   const warnings = useMemo(
-    () => regWarnings(form.dateOrWindow, known, form.venue, form.periods),
-    [form.dateOrWindow, form.venue, form.periods, known],
+    () => regWarnings(form.dates.join("、"), known, form.venue, form.periods),
+    [form.dates, form.venue, form.periods, known],
   );
   const showWarnings =
     warnings.conflicts.length > 0 || warnings.hallFull || warnings.constraints.length > 0;
@@ -121,6 +109,10 @@ export function ActivityWeekRegisterClient() {
     setDone(null);
     if (!agreed) {
       setError("請先確認免責聲明");
+      return;
+    }
+    if (!form.dates.length) {
+      setError("請至少揀一個日期");
       return;
     }
     let audience = "";
@@ -141,7 +133,7 @@ export function ActivityWeekRegisterClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: form.title.trim(),
-          dateOrWindow: form.dateOrWindow.trim(),
+          dateOrWindow: form.dates.join("、"),
           periods: splitList(form.periods),
           venue: form.venue.trim(),
           audience,
@@ -168,18 +160,20 @@ export function ActivityWeekRegisterClient() {
     }
   }
 
-  const dateValue = /^\d{4}-\d{2}-\d{2}$/.test(form.dateOrWindow)
-    ? form.dateOrWindow
-    : (singleDmyToIso(form.dateOrWindow) ?? "");
-  const shownDate = /^\d{4}-\d{2}-\d{2}$/.test(form.dateOrWindow)
-    ? formatShownDate(form.dateOrWindow)
-    : form.dateOrWindow;
+  const dateOptions: RegistrationDateOption[] = useMemo(() => registrationDateOptions(), []);
 
   return (
     <div className="space-y-6">
       <RegistrationCalendar
-        selected={dateValue}
-        onPick={(iso) => setForm((current) => ({ ...current, dateOrWindow: iso }))}
+        selected={form.dates}
+        onToggle={(iso) =>
+          setForm((current) => ({
+            ...current,
+            dates: current.dates.includes(iso)
+              ? current.dates.filter((d) => d !== iso)
+              : [...current.dates, iso].sort(),
+          }))
+        }
       />
     <form
         id="aw-reg-form"
@@ -202,35 +196,20 @@ export function ActivityWeekRegisterClient() {
           />
         </label>
         <div className="text-sm">
-          <span className="text-[var(--brand-muted)]">擬定日期 *</span>
-          <span className="relative mt-1 block">
-            <input
-              className="field w-full pr-12"
-              aria-label="擬定日期"
-              inputMode="text"
-              placeholder="例如 16-12-2026，或 16-12-2026至21-12-2026"
-              value={shownDate}
-              onChange={(e) => {
-                const typed = e.target.value;
-                setForm((f) => ({ ...f, dateOrWindow: singleDmyToIso(typed) ?? typed }));
-              }}
-              required
-            />
-            <input
-              className="absolute inset-y-0 right-0 w-11 cursor-pointer opacity-0"
-              type="date"
-              lang="en-GB"
-              aria-label="選擇日期"
-              value={dateValue}
-              onChange={(e) => setForm((f) => ({ ...f, dateOrWindow: e.target.value }))}
-            />
-            <span
-              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--brand-muted)]"
-              aria-hidden
-            >
-              選擇
-            </span>
-          </span>
+          <span className="text-[var(--brand-muted)]">擬定日期 *（可揀多日）</span>
+          <p className="mt-1 text-xs text-[var(--brand-muted)]">
+            請喺上面月曆直接勾選想安排嘅日子。
+          </p>
+          <p className="mt-0.5 text-xs text-[var(--brand-ink)]">
+            {form.dates.length
+              ? form.dates
+                  .map((iso) => {
+                    const found = dateOptions.find((o) => o.date === iso);
+                    return found ? found.label : iso;
+                  })
+                  .join("、")
+              : "（未揀日期）"}
+          </p>
         </div>
         <label className="text-sm">
           <span className="text-[var(--brand-muted)]">活動時長</span>
@@ -416,10 +395,10 @@ export function ActivityWeekRegisterClient() {
 
 function RegistrationCalendar({
   selected,
-  onPick,
+  onToggle,
 }: {
-  selected: string;
-  onPick: (iso: string) => void;
+  selected: string[];
+  onToggle: (iso: string) => void;
 }) {
   const groups: { title: string; months: RegistrationCalendarMonth[] }[] = [];
   for (const month of REGISTRATION_CALENDARS) {
@@ -454,10 +433,10 @@ function RegistrationCalendar({
                           key={day.date}
                           type="button"
                           aria-label={day.label}
-                          aria-pressed={selected === day.date}
-                          onClick={() => onPick(day.date)}
+                          aria-pressed={selected.includes(day.date)}
+                          onClick={() => onToggle(day.date)}
                           className={`rounded-md py-1 text-xs font-semibold leading-none ${
-                            selected === day.date
+                            selected.includes(day.date)
                               ? "bg-[var(--brand-accent)] text-white"
                               : "bg-[var(--brand-soft)] text-[var(--brand-ink)]"
                           }`}

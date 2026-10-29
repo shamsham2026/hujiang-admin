@@ -45,6 +45,15 @@ function expandDateOrWindow(raw: string): string[] {
   const t = (raw ?? "").trim();
   if (!t) return [];
 
+  // 多個日子用「、」或逗號分隔，逐個拆開再合併。
+  const parts = t
+    .split(/[、,，]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length > 1) {
+    return [...new Set(parts.flatMap((part) => expandDateOrWindow(part)))];
+  }
+
   const isoRange = t.match(
     /^(\d{4})-(\d{2})-(\d{2})\s*[\/–—-]\s*(\d{4})-(\d{2})-(\d{2})$/,
   );
